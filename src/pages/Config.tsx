@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import FileLu from "../utils/FileLu";
+import GalleryLu from "../utils/Common";
 
 function Config() {
   const [apiKey, setApiKey] = useState("");
@@ -27,21 +28,26 @@ function Config() {
       }
 
       // Validate API key
-      const apiError = await FileLu.validateApiKey(apiKey);
-      if (apiError) {
-        setError(apiError);
-        return;
-      }
+      await FileLu.validateApiKey(apiKey);
 
       // Save API Key to localStorage
       localStorage.setItem("apiKey", apiKey);
 
       setError(""); // Clear error if successful
       alert("API Key saved successfully!");
-    } catch {
-      console.error('Error occurred?');
+    } catch (ex) {
+      const errorMsg = GalleryLu.getErrorMessage(ex);
+      console.error('Error occurred?', errorMsg);
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    if (confirm('Are you sure to reset everything?')) {
+      localStorage.clear(); // Clear all stored data
+      window.location.reload(); // Reload the page to apply changes
     }
   };
 
@@ -62,11 +68,17 @@ function Config() {
           />
           {!isLoading && error && <div className="text-danger mt-2">{error}</div>}
         </div>
-        <button type="submit" className="btn btn-primary" disabled={isLoading}>
-          {!isLoading && <i className="bi bi-floppy"></i>}
-          {isLoading && <span className="spinner-border spinner-border-sm" aria-hidden="true"></span>}
-          &nbsp;Save API Key
-        </button>
+        <div className="d-flex">
+          <button type="submit" className="btn btn-primary" disabled={isLoading}>
+            {!isLoading && <i className="bi bi-floppy"></i>}
+            {isLoading && <span className="spinner-border spinner-border-sm" aria-hidden="true"></span>}
+            &nbsp;Save API Key
+          </button>
+          <button type="button" className="btn btn-outline-danger ms-auto" onClick={handleReset}>
+            <i className="bi bi-trash"></i>
+            &nbsp;Reset
+          </button>
+        </div>
       </form>
     </>
   );

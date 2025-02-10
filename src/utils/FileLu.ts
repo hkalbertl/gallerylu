@@ -2,20 +2,25 @@ import { FileItem } from "../types/filelu/file";
 import { FolderItem } from "../types/filelu/folder";
 import { GetFolderResult } from "../types/filelu/getFolderResult";
 
+const DIRECT_API_CALL = import.meta.env.VITE_DIRECT_API_CALL === "true";
 export default class FileLu {
 
-  private static BASE_URL = '/api/';
+  /**
+   * FileLu API base URL.
+   * Vite proxy is used for `development` due to CORS issues.
+   */
+  private static API_BASE_URL = `${DIRECT_API_CALL ? 'https://filelu.com' : ''}/api`;
 
   /**
    * Validate the FileLu API key.
    * @param apiKey The FileLu API key to test.
    * @returns Return null if it is correct, otherwise the error message.
    */
-  static async validateApiKey(apiKey: string): Promise<string | null> {
+  static async validateApiKey(apiKey: string): Promise<void> {
     let error: string | null = null;
     try {
       // Test API key
-      const resp = await fetch(`${this.BASE_URL}account/info`, {
+      const resp = await fetch(`${this.API_BASE_URL}/account/info`, {
         method: 'POST',
         body: new URLSearchParams({ key: apiKey })
       });
@@ -24,7 +29,7 @@ export default class FileLu {
         const json = await resp.json();
         if (200 === json.status) {
           // Set success result
-          return null;
+          return;
         } else if (400 === json.status) {
           // Invalid key
           error = `Error occurred during validation (status: ${json.status}): ${json.msg}`;
@@ -41,7 +46,7 @@ export default class FileLu {
       // Unknown error?
       error = `Unknown error: ${ex}`;
     }
-    return error;
+    throw error;
   }
 
   /**
@@ -54,7 +59,7 @@ export default class FileLu {
     let error: string | null = null;
     try {
       // Get folder list
-      const resp = await fetch(`${this.BASE_URL}folder/list?fld_id=${folderId}&key=${apiKey}`);
+      const resp = await fetch(`${this.API_BASE_URL}/folder/list?fld_id=${folderId}&key=${apiKey}`);
       if (resp.ok) {
         // HTTP OK! Parse as JSON
         const json = await resp.json();
