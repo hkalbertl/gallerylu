@@ -1,7 +1,7 @@
 import { FileItem } from "./file";
 import { FolderItem } from "./folder";
 
-export interface GetFolderResult {
+export interface ListFolderResult {
   fld_id: number;
   files: FileItem[];
   folders: FolderItem[];

@@ -1,6 +1,7 @@
 import { FileItem } from "../types/filelu/file";
 import { FolderItem } from "../types/filelu/folder";
-import { GetFolderResult } from "../types/filelu/getFolderResult";
+import { FileDirectLinkResult } from "../types/filelu/fileDirectLinkResult";
+import { ListFolderResult } from "../types/filelu/listFolderResult";
 
 const DIRECT_API_CALL = import.meta.env.VITE_DIRECT_API_CALL === "true";
 export default class FileLu {
@@ -55,7 +56,7 @@ export default class FileLu {
    * @param folderId Target folder's ID, 0 is the root folder.
    * @returns The files and sub-folders of target folder.
    */
-  static async getFolderContent(apiKey: string, folderId: number): Promise<GetFolderResult> {
+  static async getFolderContent(apiKey: string, folderId: number): Promise<ListFolderResult> {
     let error: string | null = null;
     try {
       // Get folder list
@@ -67,12 +68,46 @@ export default class FileLu {
           // Found files and folders
           const files: FileItem[] = json.result.files;
           const folders: FolderItem[] = json.result.folders;
-          const output: GetFolderResult = {
+          const output: ListFolderResult = {
             fld_id: folderId,
             files,
             folders,
           };
           return output;
+        } else {
+          // Unknown status
+          error = `Unknown response from server (status: ${json.status}): ${json.msg}`;
+        }
+      } else {
+        // Network error?
+        const msg = await resp.text();
+        error = `Network error: ${msg}`;
+      }
+    } catch (ex) {
+      // Unknown error?
+      error = `Unknown error: ${ex}`;
+    }
+    throw error;
+  }
+
+  static async getFileDirectLink(apiKey: string, fileCode: string): Promise<FileDirectLinkResult> {
+    let error: string | null = null;
+    try {
+      // Test API key
+      const resp = await fetch(`${this.API_BASE_URL}/file/direct_link`, {
+        method: 'POST',
+        body: new URLSearchParams({ key: apiKey, file_code: fileCode })
+      });
+      if (resp.ok) {
+        // HTTP OK! Parse as JSON
+        const json = await resp.json();
+        if (200 === json.status) {
+          // Set success result
+          const linkResult: FileDirectLinkResult = json.result;
+          return linkResult;
+        } else if (400 === json.status) {
+          // Invalid key
+          error = `Error occurred during validation (status: ${json.status}): ${json.msg}`;
         } else {
           // Unknown status
           error = `Unknown response from server (status: ${json.status}): ${json.msg}`;
