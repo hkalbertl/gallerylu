@@ -12,15 +12,25 @@ function App() {
   }, []);
 
   return (
-    <div className="container">
+    <div className="container-fluid container-md">
       <nav className="navbar navbar-expand bg-body-tertiary">
         <NavLink className="navbar-brand ps-2" to="/">
-          <i className="bi bi-images"></i> FileLu Gallery
+          GalleryLu
         </NavLink>
         <div className="navbar-nav">
-          <NavLink className="nav-link" to="/" end>Home</NavLink>
-          <NavLink className="nav-link" to="/config">Config</NavLink>
-          <NavLink className="nav-link" to="/gallery">Gallery</NavLink>
+          <NavLink className="nav-link" to="/gallery">
+            <i className="bi bi-images"></i>
+            &nbsp;Gallery
+          </NavLink>
+          <NavLink className="nav-link" to="/config">
+            <i className="bi bi-gear"></i>
+            &nbsp;Options
+          </NavLink>
+        </div>
+        <div className="navbar-nav ms-auto">
+          <a className="nav-link" href="https://github.com/hkalbertl/gallerylu" target="_blank">
+            <i className="bi bi-github"></i>
+          </a>
         </div>
       </nav>
       <Routes>

@@ -1,7 +1,5 @@
-import { FileItem } from "../types/filelu/file";
-import { FolderItem } from "../types/filelu/folder";
-import { FileDirectLinkResult } from "../types/filelu/fileDirectLinkResult";
-import { ListFolderResult } from "../types/filelu/listFolderResult";
+import { FileItem, FolderItem } from "../types/models";
+import { FileDirectLinkResult, ListFolderResult } from "../types/filelu";
 
 const DIRECT_API_CALL = import.meta.env.VITE_DIRECT_API_CALL === "true";
 export default class FileLu {
@@ -66,10 +64,20 @@ export default class FileLu {
         const json = await resp.json();
         if (json.result && Array.isArray(json.result.files) && Array.isArray(json.result.folders)) {
           // Found files and folders
-          const files: FileItem[] = json.result.files;
-          const folders: FolderItem[] = json.result.folders;
+          const files: FileItem[] = json.result.files.map((item: any) => ({
+            code: item.file_code,
+            name: item.name,
+            parent: item.fld_id,
+            thumbnail: item.thumbnail,
+          } as FileItem));
+          files.sort((a: { name: string; }, b: { name: string; }) => Intl.Collator().compare(a.name, b.name));
+          const folders: FolderItem[] = json.result.folders.map((item: any) => ({
+            id: item.fld_id,
+            name: item.name
+          } as FolderItem));
+          folders.sort((a: { name: string; }, b: { name: string; }) => Intl.Collator().compare(a.name, b.name));
           const output: ListFolderResult = {
-            fld_id: folderId,
+            folderId: folderId,
             files,
             folders,
           };

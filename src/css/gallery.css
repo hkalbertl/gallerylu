@@ -1,0 +1,41 @@
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 1rem;
+  padding: .8rem;
+  justify-content: start;
+}
+
+.gallery-item {
+  width: 13rem;
+  height: 15rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: transform 0.2s ease-in-out;
+}
+
+.gallery-item i {
+  font-size: 4rem;
+  object-fit: contain;
+}
+
+.gallery-thumbnail {
+  max-width: 10rem;
+  max-height: 10rem;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.gallery-title {
+  width: 10rem;
+  margin-top: .5rem;
+  white-space: nowrap; /* Prevent text from wrapping */
+  overflow: hidden; /* Hide overflowing text */
+  text-overflow: ellipsis; /* Add "..." when text is too long */
+  text-align: center;
+  display: block; /* Ensure it works properly */
+}

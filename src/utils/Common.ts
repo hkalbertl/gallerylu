@@ -1,4 +1,8 @@
+import { FileItem, FolderItem, PathMap } from "../types/models";
+
 export default class GalleryLu {
+
+  private static IMAGE_EXT: string[] = ['.jpg', '.jpeg', '.png', '.gif', '.bmp',];
 
   /**
    * Get the error message from string or Error object.
@@ -12,5 +16,46 @@ export default class GalleryLu {
       return ex.message;
     }
     return `${ex}`;
+  }
+
+  /**
+   * Filter out non-image files.
+   * @param files Full list of files.
+   * @returns Image only files.
+   */
+  static extractImages(files: FileItem[]): FileItem[] {
+    return files.filter((item: FileItem) =>
+      this.IMAGE_EXT.some((ext: string) =>
+        item.name.toLowerCase().endsWith(ext)));
+  }
+
+
+  /**
+   * Generate readable size based on specified blob size.
+   * @param value The numeric blob size.
+   * @returns The readable size, such as "123.4 KB" / "4.6 MB".
+   */
+  static toDisplaySize(value: number): string {
+    if (value && !isNaN(value)) {
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let i = 0;
+      while (value >= 1024 && i < units.length - 1) {
+        value /= 1024;
+        i++;
+      }
+      return `${value.toFixed(1)} ${units[i]}`;
+    }
+    return 'N/A';
+  }
+
+
+  static updatePathMap(mapping: PathMap, parentPath: string, folder: FolderItem): PathMap {
+    // Add to sub-folder mapping list
+    const pathPrefix = (1 < parentPath.length ? parentPath : '');
+    const subFolderPath = `${pathPrefix}/${folder.name}`;
+    // Config the navigation path
+    folder.navPath = `/gallery${pathPrefix}/${folder.name}`;
+    // Return updated mapping
+    return { ...mapping, [subFolderPath]: folder.id };
   }
 }
