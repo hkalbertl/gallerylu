@@ -124,27 +124,35 @@ function Gallery() {
     if (!apiKey || !folderPath) return;
 
     const loadGallery = async () => {
-      // Get folder content
-      let paths: PathMap = { ...mapping };
-      const listResult = await FileLu.getFolderContent(apiKey, listFolderId);
-      const subFolders = listResult.folders.map(folder => {
-        paths = GalleryLu.updatePathMap(paths, folderPath, folder);
-        return folder;
-      });
-      setFolders(subFolders);
-      setMapping((prevMapping) => ({
-        ...prevMapping,
-        ...paths
-      }));
+      try {
+        // Get folder content
+        let paths: PathMap = { ...mapping };
+        const listResult = await FileLu.getFolderContent(apiKey, listFolderId);
+        const subFolders = listResult.folders.map(folder => {
+          paths = GalleryLu.updatePathMap(paths, folderPath, folder);
+          return folder;
+        });
+        setFolders(subFolders);
+        setMapping((prevMapping) => ({
+          ...prevMapping,
+          ...paths
+        }));
 
-      // Filter out non-images files and find the direct link
-      const imageFiles = GalleryLu.extractImages(listResult.files);
-      setImages(imageFiles);
-      setFetchUrl(true);
+        // Filter out non-images files and find the direct link
+        const imageFiles = GalleryLu.extractImages(listResult.files);
+        setImages(imageFiles);
+        setFetchUrl(true);
 
-      // Show summary and stop loading
-      setSummary(`${listResult.folders.length} folder(s), ${imageFiles.length} image(s) out of ${listResult.files.length} file(s)`);
-      setIsLoading(false);
+        // Show summary and stop loading
+        setSummary(`${listResult.folders.length} folder(s), ${imageFiles.length} image(s) out of ${listResult.files.length} file(s)`);
+      } catch (ex) {
+        // Error occurred?
+        const errorMsg = GalleryLu.getErrorMessage(ex);
+        console.error('Failed to load gallery: ' + errorMsg);
+        setFailMsg(errorMsg);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadGallery();
@@ -162,6 +170,7 @@ function Gallery() {
 
       for (let b = 0; b < newImages.length; b += batchSize) {
         // Get current batch
+        console.log(`Fetching batch[${b}]...`);
         const batch = newImages.slice(b, b + batchSize);
 
         // Make sure all items in current batch are finished
@@ -175,6 +184,7 @@ function Gallery() {
 
         // Update to the gallery
         setImages([...newImages]);
+        console.log(`Fetched batch[${b}]!`);
 
         // Add delay if it is not the last batch
         if (b + batchSize < newImages.length) {
@@ -248,14 +258,14 @@ function Gallery() {
             </>}
           </div>
         </>}
-        {0 === folders.length && 0 === images.length && <>
+        {0 === folders.length && 0 === images.length && !failMsg && <>
           <div className="alert alert-warning text-center" role="alert">
             <i className="bi bi-exclamation-triangle"></i>
             &nbsp;This is an empty folder.
           </div>
         </>}
         {failMsg && <>
-          <div className="alert alert-warning text-center" role="alert">
+          <div className="alert alert-danger text-center" role="alert">
             <i className="bi bi-dash-circle"></i>
             &nbsp;{failMsg} <a href="/gallery">Go back to root folder</a>.
           </div>
