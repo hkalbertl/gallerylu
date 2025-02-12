@@ -58,4 +58,12 @@ export default class GalleryLu {
     // Return updated mapping
     return { ...mapping, [subFolderPath]: folder.id };
   }
+
+  /**
+   * Sleep for a while.
+   * @param time Number of time in ms.
+   */
+  static async sleep(time: number): Promise<unknown> {
+    return new Promise(resolve => setTimeout(resolve, time));
+  }
 }

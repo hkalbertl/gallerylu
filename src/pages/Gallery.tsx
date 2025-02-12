@@ -24,6 +24,7 @@ function Gallery() {
   const [mapping, setMapping] = useState<PathMap>({});
   const [images, setImages] = useState<FileItem[]>([]);
   const [folders, setFolders] = useState<FolderItem[]>([]);
+  const [fetchUrl, setFetchUrl] = useState<boolean>(false);
   const [summary, setSummary] = useState<string>('');
   const [index, setIndex] = useState(-1);
   const [failMsg, setFailMsg] = useState<string>('');
@@ -122,43 +123,7 @@ function Gallery() {
     // Check API key
     if (!apiKey || !folderPath) return;
 
-    // let paths: PathMap = { ...mapping };
     const loadGallery = async () => {
-      // TODO: Find the correct folder ID by folder path
-      /*
-      let folderId = 0;
-      if (stateFolderId) {
-        // State folder ID found
-        folderId = stateFolderId;
-      } else if (1 < folderPath.length) {
-        // Find the target folder from root
-        const rootResult = await FileLu.getFolderContent(apiKey, 0);
-        rootResult.folders.map(parseFolder);
-
-        let reqPath = '';
-        folderPath.substring(1).split('/').some(async segment => {
-          // Find the current request path
-          reqPath += '/' + segment;
-          // Find folder ID
-          const reqFolderId = paths[reqPath];
-          if (reqFolderId) {
-            const subFolderResult = await FileLu.getFolderContent(apiKey, reqFolderId);
-            subFolderResult.folders.map(parseFolder);
-          } else {
-            // Folder not found
-            reqPath = '';
-            // Break the .some loop
-            return true;
-          }
-        });
-        if (!reqPath) {
-          setIsLoading(false);
-          setFailMsg('Folder path does not exists.');
-          return;
-        }
-      }
-      */
-
       // Get folder content
       let paths: PathMap = { ...mapping };
       const listResult = await FileLu.getFolderContent(apiKey, listFolderId);
@@ -175,6 +140,7 @@ function Gallery() {
       // Filter out non-images files and find the direct link
       const imageFiles = GalleryLu.extractImages(listResult.files);
       setImages(imageFiles);
+      setFetchUrl(true);
 
       // Show summary and stop loading
       setSummary(`${listResult.folders.length} folder(s), ${imageFiles.length} image(s) out of ${listResult.files.length} file(s)`);
@@ -182,33 +148,44 @@ function Gallery() {
     };
 
     loadGallery();
-
   }, [apiKey, folderPath]);
 
+  // Retrieve the full size image URLs when folder content loaded
   useEffect(() => {
-    // Check API key
-    if (!apiKey || !images.length) return;
+    // Check API key and images
+    if (!fetchUrl || 0 === images.length) return;
 
-    // Get the full size image URL
-    async function fetchFullSizeImages() {
-      console.trace('Loading full size image URL: ', images.length);
-      const updatedImages = await Promise.all(
-        images.map(async (image) => {
+    const fetchFullSizeImages = async () => {
+      // Fetch the full size image URL by batches
+      const batchSize = 10;
+      const newImages = [...images];
+
+      for (let b = 0; b < newImages.length; b += batchSize) {
+        // Get current batch
+        const batch = newImages.slice(b, b + batchSize);
+
+        // Make sure all items in current batch are finished
+        await Promise.all(batch.map(async (image) => {
+          // Request full size URL
           const linkResult = await FileLu.getFileDirectLink(apiKey!, image.code);
-          return {
-            ...image,
-            title: `${image.name} (${GalleryLu.toDisplaySize(linkResult.size)})`,
-            src: linkResult.url
-          };
-        })
-      );
-      setImages(updatedImages);
-      console.trace('Full size image URL loaded');
-    }
-    if (0 < images.length && !images[0].src) {
-      fetchFullSizeImages();
-    }
-  }, [images]);
+          // Update to target item
+          image.title = `${image.name} (${GalleryLu.toDisplaySize(linkResult.size)})`;
+          image.src = linkResult.url;
+        }));
+
+        // Update to the gallery
+        setImages([...newImages]);
+
+        // Add delay if it is not the last batch
+        if (b + batchSize < newImages.length) {
+          // Sleep for 500ms to prevent rate limiting
+          await GalleryLu.sleep(500);
+        }
+      }
+    };
+
+    fetchFullSizeImages();
+  }, [fetchUrl]);
 
   return (
     <div>
