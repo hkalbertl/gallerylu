@@ -2,7 +2,7 @@ import { FileItem, FolderItem, PathMap } from "../types/models";
 
 export default class AppUtils {
 
-  private static IMAGE_EXT: string[] = ['.jpg', '.jpeg', '.png', '.gif', '.bmp',];
+  private static IMAGE_EXT: string[] = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
 
   /**
    * Get the error message from string or Error object.
@@ -48,13 +48,13 @@ export default class AppUtils {
     return 'N/A';
   }
 
-/**
- * Assign the navigation path of a FolderItem and update to the specified PathMap object.
- * @param mapping Target PathMap object.
- * @param parentPath Parent path of current folder.
- * @param folder FolderItem object to be updated.
- * @returns The updated PathMap object.
- */
+  /**
+   * Assign the navigation path of a FolderItem and update to the specified PathMap object.
+   * @param mapping Target PathMap object.
+   * @param parentPath Parent path of current folder.
+   * @param folder FolderItem object to be updated.
+   * @returns The updated PathMap object.
+   */
   static updatePathMap(mapping: PathMap, parentPath: string, folder: FolderItem): PathMap {
     // Add to sub-folder mapping list
     const pathPrefix = (1 < parentPath.length ? parentPath : '');
