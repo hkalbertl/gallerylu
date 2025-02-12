@@ -143,10 +143,14 @@ function Gallery() {
         // Filter out non-images files and find the direct link
         const imageFiles = GalleryLu.extractImages(listResult.files);
         setImages(imageFiles);
-        setFetchUrl(true);
 
         // Show summary and stop loading
         setSummary(`${listResult.folders.length} folder(s), ${imageFiles.length} image(s) out of ${listResult.files.length} file(s)`);
+
+        // Try to fetch full size URLs after a small delay
+        GalleryLu.sleep(100).then(()=>{
+          setFetchUrl(true);
+        });
       } catch (ex) {
         // Error occurred?
         const errorMsg = GalleryLu.getErrorMessage(ex);
@@ -163,7 +167,11 @@ function Gallery() {
   // Retrieve the full size image URLs when folder content loaded
   useEffect(() => {
     // Check API key and images
-    if (!fetchUrl || 0 === images.length) return;
+    if (!fetchUrl) return;
+    if (0 === images.length){
+      setFetchUrl(false);
+      return;
+    }
 
     const fetchFullSizeImages = async () => {
       // Fetch the full size image URL by batches
@@ -196,27 +204,36 @@ function Gallery() {
       }
     };
 
-    fetchFullSizeImages();
+    fetchFullSizeImages().finally(() => {
+      setFetchUrl(false);
+    });
   }, [fetchUrl]);
 
   return (
     <div>
-      <nav aria-label="breadcrumb">
-        <ol className="breadcrumb">
-          <li className="breadcrumb-item"><a href="/gallery">[Root]</a></li>
-          {!isLoading && 0 < breadcrumbs.length && <>
-            {breadcrumbs.map((item, level) => (level === breadcrumbs.length - 1 ?
-              <li key={level} className="breadcrumb-item active" aria-current="page">
-                {item.name}
-              </li> :
-              <li key={level} className="breadcrumb-item">
-                <a href={item.navPath}>{item.name}</a>
-              </li>
-            )
-            )}
-          </>}
-        </ol>
-      </nav>
+      <div className="d-flex align-items-center">
+        <nav className="flex-grow-1" aria-label="breadcrumb">
+          <ol className="breadcrumb mb-0">
+            <li className="breadcrumb-item"><a href="/gallery">[Root]</a></li>
+            {!isLoading && 0 < breadcrumbs.length && <>
+              {breadcrumbs.map((item, level) => (level === breadcrumbs.length - 1 ?
+                <li key={level} className="breadcrumb-item active" aria-current="page">
+                  {item.name}
+                </li> :
+                <li key={level} className="breadcrumb-item">
+                  <a href={item.navPath}>{item.name}</a>
+                </li>
+              )
+              )}
+            </>}
+          </ol>
+        </nav>
+        {fetchUrl && <div>
+          <div className="spinner-border spinner-border-sm text-primary" role="status" title="Retrieving full size image URLs...">
+            <span className="visually-hidden">Retrieving full size image URLs...</span>
+          </div>
+        </div>}
+      </div>
       <hr />
 
       {isLoading && <div className="alert alert-info text-center" role="alert">
