@@ -1,8 +1,7 @@
-import { FileItem, FolderItem } from "../types/models";
-import { FileDirectLinkResult, ListFolderResult } from "../types/filelu";
+import { FileItem, FolderItem, FileDirectLinkResult, ListFolderResult } from "../types/models";
 
 const DIRECT_API_CALL = import.meta.env.VITE_DIRECT_API_CALL === "true";
-export default class FileLu {
+export default class ApiUtils {
 
   /**
    * FileLu API base URL.
@@ -67,6 +66,8 @@ export default class FileLu {
           const files: FileItem[] = json.result.files.map((item: any) => ({
             code: item.file_code,
             name: item.name,
+            title: `${item.name} (${item.uploaded})`,
+            uploaded: item.uploaded,
             parent: item.fld_id,
             thumbnail: item.thumbnail,
           } as FileItem));

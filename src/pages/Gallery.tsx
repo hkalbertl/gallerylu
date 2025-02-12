@@ -4,9 +4,9 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Lightbox } from "yet-another-react-lightbox";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 
-import { FileItem, FolderItem, PathMap, PathBreadcrumb } from "../types/models";
-import FileLu from "../utils/FileLu";
-import GalleryLu from "../utils/Common";
+import { FileItem, FolderItem, ListFolderResult, PathMap, PathBreadcrumb } from "../types/models";
+import ApiUtils from "../utils/ApiUtils";
+import AppUtils from "../utils/AppUtils";
 
 import "yet-another-react-lightbox/styles.css";
 import "yet-another-react-lightbox/plugins/captions.css";
@@ -72,11 +72,11 @@ function Gallery() {
             console.log('Folder ID for breadcrumb path found in mapping: ' + folderId);
           } else {
             // Folder is not found, retrieve it
-            const folderContent = await FileLu.getFolderContent(apiKey!, parentId);
+            const folderContent: ListFolderResult = await ApiUtils.getFolderContent(apiKey!, parentId);
             console.log(`${currentPath} content: Folders=${folderContent.folders.length}, Files=${folderContent.files.length}`);
             folderContent.folders.forEach(folder => {
               // Update mapping
-              paths = GalleryLu.updatePathMap(paths, '/', folder);
+              paths = AppUtils.updatePathMap(paths, '/', folder);
               // Keep if it is  current folder
               if (folder.name === pathSegment) {
                 folderId = folder.id;
@@ -110,7 +110,7 @@ function Gallery() {
         setFolderPath(fileLuPath || '/');
       }).catch(err => {
         // Path not found or unknown errors
-        setFailMsg(GalleryLu.getErrorMessage(err));
+        setFailMsg(AppUtils.getErrorMessage(err));
         setIsLoading(false);
       });
     } else {
@@ -129,9 +129,9 @@ function Gallery() {
       try {
         // Get folder content
         let paths: PathMap = { ...mapping };
-        const listResult = await FileLu.getFolderContent(apiKey, listFolderId);
+        const listResult: ListFolderResult = await ApiUtils.getFolderContent(apiKey, listFolderId);
         const subFolders = listResult.folders.map(folder => {
-          paths = GalleryLu.updatePathMap(paths, folderPath, folder);
+          paths = AppUtils.updatePathMap(paths, folderPath, folder);
           return folder;
         });
         setFolders(subFolders);
@@ -141,19 +141,19 @@ function Gallery() {
         }));
 
         // Filter out non-images files and find the direct link
-        const imageFiles = GalleryLu.extractImages(listResult.files);
+        const imageFiles = AppUtils.extractImages(listResult.files);
         setImages(imageFiles);
 
         // Show summary and stop loading
         setSummary(`${listResult.folders.length} folder(s), ${imageFiles.length} image(s) out of ${listResult.files.length} file(s)`);
 
         // Try to fetch full size URLs after a small delay
-        GalleryLu.sleep(100).then(()=>{
+        AppUtils.sleep(100).then(() => {
           setFetchUrl(true);
         });
       } catch (ex) {
         // Error occurred?
-        const errorMsg = GalleryLu.getErrorMessage(ex);
+        const errorMsg = AppUtils.getErrorMessage(ex);
         console.error('Failed to load gallery: ' + errorMsg);
         setFailMsg(errorMsg);
       } finally {
@@ -168,7 +168,7 @@ function Gallery() {
   useEffect(() => {
     // Check API key and images
     if (!fetchUrl) return;
-    if (0 === images.length){
+    if (0 === images.length) {
       setFetchUrl(false);
       return;
     }
@@ -186,9 +186,9 @@ function Gallery() {
         // Make sure all items in current batch are finished
         await Promise.all(batch.map(async (image) => {
           // Request full size URL
-          const linkResult = await FileLu.getFileDirectLink(apiKey!, image.code);
+          const linkResult = await ApiUtils.getFileDirectLink(apiKey!, image.code);
           // Update to target item
-          image.title = `${image.name} (${GalleryLu.toDisplaySize(linkResult.size)})`;
+          image.title = `${image.name} (${AppUtils.toDisplaySize(linkResult.size)} / ${image.uploaded})`;
           image.src = linkResult.url;
         }));
 
@@ -199,7 +199,7 @@ function Gallery() {
         // Add delay if it is not the last batch
         if (b + batchSize < newImages.length) {
           // Sleep for 500ms to prevent rate limiting
-          await GalleryLu.sleep(500);
+          await AppUtils.sleep(500);
         }
       }
     };
@@ -208,6 +208,13 @@ function Gallery() {
       setFetchUrl(false);
     });
   }, [fetchUrl]);
+
+  const handleImageClick = (imageIndex: number) => {
+    // Show lightbox only when image full size URLs loaded
+    if (!fetchUrl) {
+      setIndex(imageIndex);
+    }
+  };
 
   return (
     <div>
@@ -261,12 +268,13 @@ function Gallery() {
               {images.map((image, imageIndex) => (
                 <div key={image.code} className="gallery-item border rounded shadow-sm bg-body-tertiary" title={image.name}>
                   <img src={image.thumbnail} alt={image.name} className="gallery-thumbnail"
-                    onClick={() => setIndex(imageIndex)} />
+                    onClick={() => handleImageClick(imageIndex)} />
                   <div className="gallery-title">{image.name}</div>
                 </div>
               ))}
               <Lightbox
                 plugins={[Captions]}
+                captions={{ showToggle: true }}
                 index={index}
                 slides={images}
                 open={index >= 0}

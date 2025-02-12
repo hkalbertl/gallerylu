@@ -1,11 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
   build: {
     rollupOptions: {
+      // Make the bundle name
       output: {
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',
@@ -13,8 +13,13 @@ export default defineConfig(({ mode }) => ({
       }
     }
   },
+  esbuild: {
+    // Drop console.log on production
+    pure: mode === 'production' ? ['console.log'] : [],
+  },
   server: {
     open: '/',
+    /*
     proxy: mode === "development" ? {
       "/api": {
         target: "https://filelu.com/api",
@@ -22,5 +27,6 @@ export default defineConfig(({ mode }) => ({
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
     } : undefined,
+    */
   }
 }));

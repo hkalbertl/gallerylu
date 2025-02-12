@@ -1,6 +1,6 @@
 import { FileItem, FolderItem, PathMap } from "../types/models";
 
-export default class GalleryLu {
+export default class AppUtils {
 
   private static IMAGE_EXT: string[] = ['.jpg', '.jpeg', '.png', '.gif', '.bmp',];
 

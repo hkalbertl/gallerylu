@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import FileLu from "../utils/FileLu";
-import GalleryLu from "../utils/Common";
+import ApiUtils from "../utils/ApiUtils";
+import AppUtils from "../utils/AppUtils";
 
 function Config() {
   const [apiKey, setApiKey] = useState("");
@@ -29,7 +29,7 @@ function Config() {
       }
 
       // Validate API key
-      await FileLu.validateApiKey(apiKey);
+      await ApiUtils.validateApiKey(apiKey);
 
       // Save API Key to localStorage
       localStorage.setItem("apiKey", apiKey);
@@ -39,7 +39,7 @@ function Config() {
       setIsSuccess(true);
     } catch (ex) {
       // Error occurred? Most likely the API is not correct
-      const errorMsg = GalleryLu.getErrorMessage(ex);
+      const errorMsg = AppUtils.getErrorMessage(ex);
       console.error('Error occurred?', errorMsg);
       setError(errorMsg);
     } finally {

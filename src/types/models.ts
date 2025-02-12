@@ -11,6 +11,11 @@ export interface FileItem {
   name: string;
 
   /**
+   * FileLu uploaded time.
+   */
+  uploaded: string;
+
+  /**
    * FileLu folder ID.
    */
   parent: number;
@@ -61,4 +66,15 @@ export interface PathBreadcrumb {
 
 export interface PathMap {
   [path: string]: number;
+}
+
+export interface FileDirectLinkResult {
+  url: string;
+  size: number;
+}
+
+export interface ListFolderResult {
+  folderId: number;
+  files: FileItem[];
+  folders: FolderItem[];
 }
