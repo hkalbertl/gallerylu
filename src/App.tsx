@@ -13,7 +13,7 @@ function App() {
 
   return (
     <div className="container-fluid container-md">
-      <nav className="navbar navbar-expand bg-body-tertiary">
+      <nav className="navbar navbar-expand bg-body-tertiary mb-3">
         <NavLink className="navbar-brand ps-2" to="/">
           GalleryLu
         </NavLink>
@@ -24,7 +24,7 @@ function App() {
           </NavLink>
           <NavLink className="nav-link" to="/config">
             <i className="bi bi-gear"></i>
-            &nbsp;Options
+            &nbsp;Config
           </NavLink>
         </div>
         <div className="navbar-nav ms-auto">

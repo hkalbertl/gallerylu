@@ -31,10 +31,10 @@ export default class FileLu {
           return;
         } else if (400 === json.status) {
           // Invalid key
-          error = `Error occurred during validation (status: ${json.status}): ${json.msg}`;
+          error = `Invalid API key (status: ${json.status}): ${json.msg}`;
         } else {
           // Unknown status
-          error = `Unknown response from server (status: ${json.status}): ${json.msg}`;
+          error = `Unknown API response (status: ${json.status}): ${json.msg}`;
         }
       } else {
         // Network error?
@@ -63,7 +63,7 @@ export default class FileLu {
         // HTTP OK! Parse as JSON
         const json = await resp.json();
         if (json.result && Array.isArray(json.result.files) && Array.isArray(json.result.folders)) {
-          // Found files and folders
+          // Cast the FileLu files to FileItem and apply sorting
           const files: FileItem[] = json.result.files.map((item: any) => ({
             code: item.file_code,
             name: item.name,
@@ -71,11 +71,15 @@ export default class FileLu {
             thumbnail: item.thumbnail,
           } as FileItem));
           files.sort((a: { name: string; }, b: { name: string; }) => Intl.Collator().compare(a.name, b.name));
+
+          // Cast the FileLu folders to FolderItem and apply sorting
           const folders: FolderItem[] = json.result.folders.map((item: any) => ({
             id: item.fld_id,
             name: item.name
           } as FolderItem));
           folders.sort((a: { name: string; }, b: { name: string; }) => Intl.Collator().compare(a.name, b.name));
+
+          // Return list folder result
           const output: ListFolderResult = {
             folderId: folderId,
             files,
@@ -84,7 +88,7 @@ export default class FileLu {
           return output;
         } else {
           // Unknown status
-          error = `Unknown response from server (status: ${json.status}): ${json.msg}`;
+          error = `Unknown API response (status: ${json.status}): ${json.msg}`;
         }
       } else {
         // Network error?
@@ -115,10 +119,10 @@ export default class FileLu {
           return linkResult;
         } else if (400 === json.status) {
           // Invalid key
-          error = `Error occurred during validation (status: ${json.status}): ${json.msg}`;
+          error = `Invalid API key (status: ${json.status}): ${json.msg}`;
         } else {
           // Unknown status
-          error = `Unknown response from server (status: ${json.status}): ${json.msg}`;
+          error = `Unknown API response (status: ${json.status}): ${json.msg}`;
         }
       } else {
         // Network error?

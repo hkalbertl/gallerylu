@@ -1,7 +1,7 @@
 {
   "name": "gallerylu",
   "description": "A React-based image gallery for previewing images uploaded to FileLu cloud storage.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "scripts": {
     "dev": "cross-env BROWSER=brave vite",

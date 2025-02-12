@@ -61,7 +61,7 @@ function Gallery() {
         for (const pathSegment of pathSegments) {
           // Set current path
           currentPath += `/${pathSegment}`;
-          console.log('Processing path: ', currentPath);
+          console.log('Processing breadcrumb path: ' + currentPath);
 
           // Find target folder ID
           let folderId = 0;
@@ -69,10 +69,11 @@ function Gallery() {
             // Folder ID found in mapping
             folderId = paths[currentPath];
             parentId = folderId;
+            console.log('Folder ID for breadcrumb path found in mapping: ' + folderId);
           } else {
             // Folder is not found, retrieve it
             const folderContent = await FileLu.getFolderContent(apiKey!, parentId);
-            console.log(`Folder content of [${currentPath}] loaded: Folders: ${folderContent.folders.length}, Files: ${folderContent.files.length}`);
+            console.log(`${currentPath} content: Folders=${folderContent.folders.length}, Files=${folderContent.files.length}`);
             folderContent.folders.forEach(folder => {
               // Update mapping
               paths = GalleryLu.updatePathMap(paths, '/', folder);
@@ -110,6 +111,7 @@ function Gallery() {
       }).catch(err => {
         // Path not found or unknown errors
         setFailMsg(GalleryLu.getErrorMessage(err));
+        setIsLoading(false);
       });
     } else {
       // This is root path
@@ -199,8 +201,6 @@ function Gallery() {
 
   return (
     <div>
-      <h1>Gallery</h1>
-
       <nav aria-label="breadcrumb">
         <ol className="breadcrumb">
           <li className="breadcrumb-item"><a href="/gallery">[Root]</a></li>
