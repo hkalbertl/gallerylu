@@ -194,7 +194,7 @@ function Gallery() {
 
         // Update to the gallery
         setImages([...newImages]);
-        console.log(`Fetched batch[${b}]!`);
+        console.log(`Fetch completed on batch[${b}]`);
 
         // Add delay if it is not the last batch
         if (b + batchSize < newImages.length) {
