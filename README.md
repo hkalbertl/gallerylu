@@ -20,7 +20,8 @@ A React-based image gallery for previewing images uploaded to [FileLu](https://f
 * Image Preview
   * Click on image thumbnails to open a full-size preview.
   * Lightbox-style image viewer.
-  * Image metadata display in lightbox view
+  * Image metadata display in lightbox view.
+  * Sort images by file name or uploaded time.
 * FileLu Integration
   * Seamless connection to FileLu's API using user-provided API keys.
   * Secure handling of API keys (client-side only, no server involved).
@@ -31,7 +32,7 @@ A React-based image gallery for previewing images uploaded to [FileLu](https://f
   * All processing happens client-side in the user's browser.
 
 ## Demo
-https://github.com/user-attachments/assets/7fb03f4f-f032-4b8b-83fd-8e14197039b0
+https://github.com/user-attachments/assets/6e20a637-1740-47ae-b6fd-faa1d3d2f68b
 
 ## Terms of Use
 Welcome to GalleryLu. By using this application, you agree to the following terms:

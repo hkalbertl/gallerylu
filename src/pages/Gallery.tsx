@@ -355,7 +355,7 @@ function Gallery() {
         {0 === folders.length && 0 === images.length && !failMsg && <>
           <div className="alert alert-warning text-center" role="alert">
             <ExclamationTriangle />
-            &nbsp;This is an empty folder.
+            &nbsp;No images in this folder.
           </div>
         </>}
         {failMsg && <>
