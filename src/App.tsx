@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Routes, Route, NavLink } from "react-router-dom";
+import { Images, Gear, Github } from "react-bootstrap-icons";
 import Home from "./pages/Home";
 import Config from "./pages/Config";
 import Gallery from "./pages/Gallery";
@@ -19,17 +20,17 @@ function App() {
         </NavLink>
         <div className="navbar-nav">
           <NavLink className="nav-link" to="/gallery">
-            <i className="bi bi-images"></i>
+            <Images />
             &nbsp;Gallery
           </NavLink>
           <NavLink className="nav-link" to="/config">
-            <i className="bi bi-gear"></i>
+            <Gear />
             &nbsp;Config
           </NavLink>
         </div>
         <div className="navbar-nav ms-auto">
           <a className="nav-link" href="https://github.com/hkalbertl/gallerylu" target="_blank">
-            <i className="bi bi-github"></i>
+            <Github />
           </a>
         </div>
       </nav>

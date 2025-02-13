@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 
+import { Folder as FolderIcon, ExclamationTriangle, DashCircle } from "react-bootstrap-icons";
 import { Lightbox } from "yet-another-react-lightbox";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 
@@ -32,11 +33,26 @@ function Gallery() {
   // Check API key exists, or redirect to config page when not found
   useEffect(() => {
     const rawApiKey = localStorage.getItem("apiKey");
-    if (!rawApiKey) {
-      navigate("/config"); // Redirect to Config page
-    } else {
+    if (rawApiKey) {
       setApiKey(rawApiKey);
+    } else {
+      navigate("/config"); // Redirect to Config page
     }
+    /*
+    const encryptedData = localStorage.getItem("apiKey");
+    AppUtils.decryptData(encryptedData).then(decryptedKey => {
+      if (!decryptedKey) {
+        // Redirect to Config page
+        navigate("/config");
+      } else {
+        // API key found
+        setApiKey(decryptedKey);
+      }
+    }).catch(err => {
+      console.warn('Failed to load saved data: ' + AppUtils.getErrorMessage(err));
+      navigate("/config");
+    });
+    */
   }, [navigate]); // Dependency array to avoid unnecessary rerenders
 
   // Extract path from URL
@@ -144,13 +160,11 @@ function Gallery() {
         const imageFiles = AppUtils.extractImages(listResult.files);
         setImages(imageFiles);
 
+        // Fetch full size URLs
+        setFetchUrl(true);
+
         // Show summary and stop loading
         setSummary(`${listResult.folders.length} folder(s), ${imageFiles.length} image(s) out of ${listResult.files.length} file(s)`);
-
-        // Try to fetch full size URLs after a small delay
-        AppUtils.sleep(100).then(() => {
-          setFetchUrl(true);
-        });
       } catch (ex) {
         // Error occurred?
         const errorMsg = AppUtils.getErrorMessage(ex);
@@ -166,14 +180,16 @@ function Gallery() {
 
   // Retrieve the full size image URLs when folder content loaded
   useEffect(() => {
-    // Check API key and images
+    // Check fetch URL
     if (!fetchUrl) return;
-    if (0 === images.length) {
-      setFetchUrl(false);
-      return;
-    }
 
-    const fetchFullSizeImages = async () => {
+    // Try to fetch full size URLs after a small delay
+    AppUtils.sleep(100).then(async () => {
+      // Exit if images not loaded
+      if (0 === images.length) {
+        return;
+      }
+
       // Fetch the full size image URL by batches
       const batchSize = 10;
       const newImages = [...images];
@@ -202,17 +218,16 @@ function Gallery() {
           await AppUtils.sleep(500);
         }
       }
-    };
-
-    fetchFullSizeImages().finally(() => {
+    }).finally(() => {
+      // Set the fetchUrl to false when finished
       setFetchUrl(false);
     });
   }, [fetchUrl]);
 
-  const handleImageClick = (imageIndex: number) => {
+  const handleImageClick = (index: number) => {
     // Show lightbox only when image full size URLs loaded
-    if (!fetchUrl) {
-      setIndex(imageIndex);
+    if (images && index < images.length && images[index].src) {
+      setIndex(index);
     }
   };
 
@@ -221,14 +236,14 @@ function Gallery() {
       <div className="d-flex align-items-center">
         <nav className="flex-grow-1" aria-label="breadcrumb">
           <ol className="breadcrumb mb-0">
-            <li className="breadcrumb-item"><a href="/gallery">[Root]</a></li>
+            <li className="breadcrumb-item"><Link to="/gallery">[Root]</Link></li>
             {!isLoading && 0 < breadcrumbs.length && <>
               {breadcrumbs.map((item, level) => (level === breadcrumbs.length - 1 ?
                 <li key={level} className="breadcrumb-item active" aria-current="page">
                   {item.name}
                 </li> :
                 <li key={level} className="breadcrumb-item">
-                  <a href={item.navPath}>{item.name}</a>
+                  <Link to={item.navPath}>{item.name}</Link>
                 </li>
               )
               )}
@@ -252,24 +267,31 @@ function Gallery() {
 
       {!isLoading && <>
         {(0 !== folders.length || 0 !== images.length) && <>
-          <div className="gallery-grid">
-            {0 < folders.length && <>
-              {folders.map(folder => (
-                <Link key={folder.id} className="link-underline link-underline-opacity-0 link-underline-opacity-75-hover"
-                  to={folder.navPath} state={{ folderId: folder.id }}>
-                  <div className="gallery-item border rounded shadow-sm bg-body-tertiary" title={folder.name}>
-                    <i className="bi bi-folder"></i>
-                    <div className="gallery-title">{folder.name}</div>
+          <div className="row">
+            {folders.map(folder => (
+              <div key={folder.id} className="col-6 col-md-4 col-lg-3 col-xxl-2 mb-4" title={folder.name}>
+                <Link to={folder.navPath} className="card folder-card text-decoration-none">
+                  <div className="image-container bg-body-tertiary">
+                    <FolderIcon className="text-primary folder-icon" />
+                  </div>
+                  <div className="card-body text-center p-2">
+                    <p className="card-text">{folder.name}</p>
                   </div>
                 </Link>
-              ))}
-            </>}
+              </div>
+            ))}
             {0 < images.length && <>
               {images.map((image, imageIndex) => (
-                <div key={image.code} className="gallery-item border rounded shadow-sm bg-body-tertiary" title={image.name}>
-                  <img src={image.thumbnail} alt={image.name} className="gallery-thumbnail"
-                    onClick={() => handleImageClick(imageIndex)} />
-                  <div className="gallery-title">{image.name}</div>
+                <div key={image.code} className="col-6 col-md-4 col-lg-3 col-xxl-2 mb-4" title={image.name}>
+                  <div className="card">
+                    <div className="image-container bg-body-tertiary">
+                      <img src={image.thumbnail} className="img-fluid" alt={image.name}
+                        onClick={() => handleImageClick(imageIndex)} />
+                    </div>
+                    <div className="card-body text-center p-2">
+                      <p className="card-text">{image.name}</p>
+                    </div>
+                  </div>
                 </div>
               ))}
               <Lightbox
@@ -285,14 +307,14 @@ function Gallery() {
         </>}
         {0 === folders.length && 0 === images.length && !failMsg && <>
           <div className="alert alert-warning text-center" role="alert">
-            <i className="bi bi-exclamation-triangle"></i>
+            <ExclamationTriangle />
             &nbsp;This is an empty folder.
           </div>
         </>}
         {failMsg && <>
           <div className="alert alert-danger text-center" role="alert">
-            <i className="bi bi-dash-circle"></i>
-            &nbsp;{failMsg} <a href="/gallery">Go back to root folder</a>.
+            <DashCircle />
+            &nbsp;{failMsg} <Link to="/gallery">Go back to root folder</Link>.
           </div>
         </>}
 

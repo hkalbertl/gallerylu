@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
+import { Check2, DashCircle, Floppy, Trash } from "react-bootstrap-icons";
 import ApiUtils from "../utils/ApiUtils";
 import AppUtils from "../utils/AppUtils";
+
 
 function Config() {
   const [apiKey, setApiKey] = useState("");
@@ -10,8 +12,21 @@ function Config() {
 
   // Load API Key from localStorage when the component mounts
   useEffect(() => {
-    const savedKey = localStorage.getItem("apiKey");
-    if (savedKey) setApiKey(savedKey);
+    const rawApiKey = localStorage.getItem("apiKey");
+    if (rawApiKey) {
+      setApiKey(rawApiKey);
+    }
+    /*
+    const encryptedData = localStorage.getItem("apiKey");
+    AppUtils.decryptData(encryptedData).then(decryptedKey => {
+      if (decryptedKey) {
+        // Set API key when data decrypted
+        setApiKey(decryptedKey);
+      }
+    }).catch(err => {
+      console.warn('Failed to load saved data: ' + AppUtils.getErrorMessage(err));
+    });
+    */
   }, []);
 
   // Handle form submission
@@ -31,8 +46,14 @@ function Config() {
       // Validate API key
       await ApiUtils.validateApiKey(apiKey);
 
-      // Save API Key to localStorage
+      // Save to localStorage
       localStorage.setItem("apiKey", apiKey);
+
+      /*
+      // Encrypt the API key and save to localStorage
+      const encrypted = await AppUtils.encryptData(apiKey);
+      localStorage.setItem("apiKey", encrypted);
+      */
 
       // Clear error and show successful alert
       setError("");
@@ -76,19 +97,19 @@ function Config() {
               </div>
             </div>
             {!isLoading && isSuccess && <div className="alert alert-success">
-              <i className="bi bi-check2"></i> Configuration saved successfully!
+              <Check2 /> Configuration saved successfully!
             </div>}
             {!isLoading && error && <div className="alert alert-danger">
-              <i className="bi bi-dash-circle"></i> {error}
+              <DashCircle /> {error}
             </div>}
             <div className="d-flex">
               <button type="submit" className="btn btn-primary" disabled={isLoading}>
-                {!isLoading && <i className="bi bi-floppy"></i>}
+                {!isLoading && <Floppy />}
                 {isLoading && <span className="spinner-border spinner-border-sm" aria-hidden="true"></span>}
                 &nbsp;Save
               </button>
               <button type="button" className="btn btn-outline-danger ms-auto" onClick={handleReset}>
-                <i className="bi bi-trash"></i>
+                <Trash />
                 &nbsp;Reset
               </button>
             </div>

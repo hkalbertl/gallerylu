@@ -5,12 +5,13 @@ A React-based image gallery for previewing images uploaded to [FileLu](https://f
 ## Motivation
 <details>
   <summary>Click to expand</summary>
+
   GalleryLu is my second open-source contribution to the FileLu ecosystem, following the <a href="https://github.com/hkalbertl/web-image-categorizer" target="_blank">Web Image Categorizer (WIC)</a>.  While using FileLu to manage images uploaded by WIC, I identified some usability challenges.  The folder navigation could be more efficient, and the image preview lacked the convenience of "next" and "previous" buttons.  GalleryLu addresses these issues, providing a streamlined image browsing experience.  Critically, user privacy is a core principle.  All data processing occurs within the client's browser, and the application, hosted on Vercel, is purely static.  Data transmission is strictly limited to communication with the FileLu API.
 
   If you are new to FileLu, please consider to register by using my <a href="https://filelu.com/5155514948.html" target="_blank">referral link</a>.
 </details>
 
-# Features
+## Features
 * Intuitive File Explorer Interface
   * Familiar folder/file structure navigation.
   * Clear visual hierarchy for folders and files.
@@ -51,9 +52,9 @@ Welcome to GalleryLu. By using this application, you agree to the following term
   * Any changes will be posted on this page, and continued use of the application constitutes acceptance of the updated terms.
 
 ## Limitations
-* GalleryLu supports common image formats only, such as .jpg, .png, .bmp, .gif, and .webp. Other files will be hidden.
+* GalleryLu supports common image formats only, such as `.jpg`, `.png`, `.bmp`, `.gif`, and `.webp`. Other files will be hidden.
 * GalleryLu depends on FileLu's API. GalleryLu will not work when the API service is unavailable.
-* FileLu does not provide an API that can list a folder's content with their direct download links. Therefore, GalleryLu has to request a download link for each image one by one. To prevent hitting the rate limit, GalleryLu may take time to load a large folder.
+* FileLu does not provide an [API](https://filelu.com/pages/api/) that can list a folder's content with their direct download links. Therefore, GalleryLu has to request a download link for each image one by one. To prevent hitting the rate limit, GalleryLu may take time to load a large folder.
 
 ## License
 Licensed under the [MIT](http://www.opensource.org/licenses/mit-license.php) license.
