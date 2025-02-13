@@ -1,4 +1,5 @@
 import { FileItem, FolderItem, FileDirectLinkResult, ListFolderResult } from "../types/models";
+import AppUtils from "./AppUtils";
 
 const DIRECT_API_CALL = import.meta.env.VITE_DIRECT_API_CALL === "true";
 export default class ApiUtils {
@@ -53,7 +54,7 @@ export default class ApiUtils {
    * @param folderId Target folder's ID, 0 is the root folder.
    * @returns The files and sub-folders of target folder.
    */
-  static async getFolderContent(apiKey: string, folderId: number): Promise<ListFolderResult> {
+  static async getFolderContent(apiKey: string, folderId: number, sortType: string): Promise<ListFolderResult> {
     let error: string | null = null;
     try {
       // Get folder list
@@ -71,14 +72,18 @@ export default class ApiUtils {
             parent: item.fld_id,
             thumbnail: item.thumbnail,
           } as FileItem));
-          files.sort((a: { name: string; }, b: { name: string; }) => Intl.Collator().compare(a.name, b.name));
+          if ('uploaded' === sortType) {
+            files.sort(AppUtils.sortByTimeDesc);
+          } else {
+            files.sort(AppUtils.sortByNameAsc);
+          }
 
           // Cast the FileLu folders to FolderItem and apply sorting
           const folders: FolderItem[] = json.result.folders.map((item: any) => ({
             id: item.fld_id,
             name: item.name
           } as FolderItem));
-          folders.sort((a: { name: string; }, b: { name: string; }) => Intl.Collator().compare(a.name, b.name));
+          folders.sort(AppUtils.sortByNameAsc);
 
           // Return list folder result
           const output: ListFolderResult = {

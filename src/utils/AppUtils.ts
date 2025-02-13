@@ -95,7 +95,7 @@ export default class AppUtils {
       encodedText
     );
 
-    return JSON.stringify( {
+    return JSON.stringify({
       iv: Array.from(iv), // Convert IV to array to store
       data: Array.from(new Uint8Array(ciphertext)), // Convert to array
     });
@@ -105,7 +105,7 @@ export default class AppUtils {
     if (!encryptedData) return null;
     try {
       // Try to parse JSON
-      let jsonData: {iv: number[], data: number[]; };
+      let jsonData: { iv: number[], data: number[]; };
       const parsedJson = JSON.parse(encryptedData);
       if (parsedJson.data && Array.isArray(parsedJson.data) && 0 < parsedJson.data.length
         && parsedJson.iv && Array.isArray(parsedJson.iv) && 0 < parsedJson.iv.length) {
@@ -132,5 +132,13 @@ export default class AppUtils {
       console.error('Failed to decrypt data: ' + this.getErrorMessage(ex));
     }
     return null;
+  }
+
+  static sortByNameAsc(a: { name: string; }, b: { name: string; }) {
+    return Intl.Collator().compare(a.name, b.name);
+  }
+
+  static sortByTimeDesc(a: { uploaded: string; }, b: { uploaded: string; }) {
+    return Intl.Collator().compare(b.uploaded, a.uploaded);
   }
 }

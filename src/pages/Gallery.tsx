@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 
-import { Folder as FolderIcon, ExclamationTriangle, DashCircle } from "react-bootstrap-icons";
+import { Folder as FolderIcon, ExclamationTriangle, DashCircle, SortAlphaDown, Clock } from "react-bootstrap-icons";
 import { Lightbox } from "yet-another-react-lightbox";
-import Captions from "yet-another-react-lightbox/plugins/captions";
+import { Captions, Zoom } from "yet-another-react-lightbox/plugins";
 
 import { FileItem, FolderItem, ListFolderResult, PathMap, PathBreadcrumb } from "../types/models";
 import ApiUtils from "../utils/ApiUtils";
@@ -23,6 +23,7 @@ function Gallery() {
   const [breadcrumbs, setBreadcrumbs] = useState<PathBreadcrumb[]>([]);
   const [listFolderId, setListFolderId] = useState<number>(0);
   const [mapping, setMapping] = useState<PathMap>({});
+  const [sortType, setSortType] = useState<"name" | "uploaded">("name");
   const [images, setImages] = useState<FileItem[]>([]);
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [fetchUrl, setFetchUrl] = useState<boolean>(false);
@@ -88,7 +89,7 @@ function Gallery() {
             console.log('Folder ID for breadcrumb path found in mapping: ' + folderId);
           } else {
             // Folder is not found, retrieve it
-            const folderContent: ListFolderResult = await ApiUtils.getFolderContent(apiKey!, parentId);
+            const folderContent: ListFolderResult = await ApiUtils.getFolderContent(apiKey!, parentId, sortType);
             console.log(`${currentPath} content: Folders=${folderContent.folders.length}, Files=${folderContent.files.length}`);
             folderContent.folders.forEach(folder => {
               // Update mapping
@@ -145,7 +146,7 @@ function Gallery() {
       try {
         // Get folder content
         let paths: PathMap = { ...mapping };
-        const listResult: ListFolderResult = await ApiUtils.getFolderContent(apiKey, listFolderId);
+        const listResult: ListFolderResult = await ApiUtils.getFolderContent(apiKey, listFolderId, sortType);
         const subFolders = listResult.folders.map(folder => {
           paths = AppUtils.updatePathMap(paths, folderPath, folder);
           return folder;
@@ -183,11 +184,12 @@ function Gallery() {
     // Check fetch URL
     if (!fetchUrl) return;
 
-    // Try to fetch full size URLs after a small delay
-    AppUtils.sleep(100).then(async () => {
+    // Try to fetch full size URLs
+    let isCancelled = false;
+    const fetchFullUrls = async () => {
       // Exit if images not loaded
       if (0 === images.length) {
-        return;
+        return true;
       }
 
       // Fetch the full size image URL by batches
@@ -195,6 +197,12 @@ function Gallery() {
       const newImages = [...images];
 
       for (let b = 0; b < newImages.length; b += batchSize) {
+        // Make sure it is working on the same path
+        if (isCancelled) {
+          console.warn('Working folder path changed...');
+          return;
+        }
+
         // Get current batch
         console.log(`Fetching batch[${b}]...`);
         const batch = newImages.slice(b, b + batchSize);
@@ -208,6 +216,12 @@ function Gallery() {
           image.src = linkResult.url;
         }));
 
+        // Make sure it is working on the same path
+        if (isCancelled) {
+          console.warn('Working folder path changed...');
+          return;
+        }
+
         // Update to the gallery
         setImages([...newImages]);
         console.log(`Fetch completed on batch[${b}]`);
@@ -218,16 +232,36 @@ function Gallery() {
           await AppUtils.sleep(500);
         }
       }
-    }).finally(() => {
-      // Set the fetchUrl to false when finished
+    };
+
+    fetchFullUrls().finally(() => {
       setFetchUrl(false);
     });
-  }, [fetchUrl]);
 
-  const handleImageClick = (index: number) => {
+    return () => {
+      isCancelled = true; // Mark as cancelled when path changes
+    };
+  }, [folderPath, fetchUrl]);
+
+  // Sort images
+  useEffect(() => {
+    if (!images.length) return;
+
+    const newImages = [...images];
+    if ('uploaded' === sortType) {
+      // Sort by time DESC
+      newImages.sort(AppUtils.sortByTimeDesc);
+    } else {
+      // Sort by name ASC
+      newImages.sort(AppUtils.sortByNameAsc);
+    }
+    setImages(newImages);
+  }, [sortType]);
+
+  const handleImageClick = (imageIndex: number) => {
     // Show lightbox only when image full size URLs loaded
-    if (images && index < images.length && images[index].src) {
-      setIndex(index);
+    if (images && imageIndex < images.length && images[imageIndex].src) {
+      setIndex(imageIndex);
     }
   };
 
@@ -250,11 +284,24 @@ function Gallery() {
             </>}
           </ol>
         </nav>
-        {fetchUrl && <div>
-          <div className="spinner-border spinner-border-sm text-primary" role="status" title="Retrieving full size image URLs...">
-            <span className="visually-hidden">Retrieving full size image URLs...</span>
-          </div>
-        </div>}
+        <div>
+          {fetchUrl ? <>
+            <div className="spinner-border spinner-border-sm text-primary" role="status" title="Retrieving full size image URLs...">
+              <span className="visually-hidden">Retrieving full size image URLs...</span>
+            </div>
+          </> : <>
+            <div className="btn-group btn-group-sm" role="group">
+              <button className={`btn btn-outline-primary ${sortType === "name" ? "active" : ""}`}
+                title="Sort by file name" onClick={() => setSortType("name")}>
+                <SortAlphaDown />
+              </button>
+              <button className={`btn btn-outline-primary ${sortType === "uploaded" ? "active" : ""}`}
+                title="Sort by latest uploaded time" onClick={() => setSortType("uploaded")}>
+                <Clock />
+              </button>
+            </div>
+          </>}
+        </div>
       </div>
       <hr />
 
@@ -270,11 +317,11 @@ function Gallery() {
           <div className="row">
             {folders.map(folder => (
               <div key={folder.id} className="col-6 col-md-4 col-lg-3 col-xxl-2 mb-4" title={folder.name}>
-                <Link to={folder.navPath} className="card folder-card text-decoration-none">
-                  <div className="image-container bg-body-tertiary">
-                    <FolderIcon className="text-primary folder-icon" />
+                <Link to={folder.navPath} className="card">
+                  <div className="image-container">
+                    <FolderIcon className="folder-icon" />
                   </div>
-                  <div className="card-body text-center p-2">
+                  <div className="card-body">
                     <p className="card-text">{folder.name}</p>
                   </div>
                 </Link>
@@ -282,20 +329,20 @@ function Gallery() {
             ))}
             {0 < images.length && <>
               {images.map((image, imageIndex) => (
-                <div key={image.code} className="col-6 col-md-4 col-lg-3 col-xxl-2 mb-4" title={image.name}>
+                <div key={image.code} className="col-6 col-md-4 col-lg-3 col-xxl-2 mb-4" title={image.title}>
                   <div className="card">
-                    <div className="image-container bg-body-tertiary">
+                    <div className="image-container">
                       <img src={image.thumbnail} className="img-fluid" alt={image.name}
                         onClick={() => handleImageClick(imageIndex)} />
                     </div>
-                    <div className="card-body text-center p-2">
+                    <div className="card-body">
                       <p className="card-text">{image.name}</p>
                     </div>
                   </div>
                 </div>
               ))}
               <Lightbox
-                plugins={[Captions]}
+                plugins={[Captions, Zoom]}
                 captions={{ showToggle: true }}
                 index={index}
                 slides={images}

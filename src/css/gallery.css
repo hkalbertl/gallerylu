@@ -1,3 +1,11 @@
+.card {
+  background-color: var(--bs-tertiary-bg) !important;
+}
+
+a.card {
+  text-decoration: none !important;
+}
+
 .image-container {
   width: 100%;
   aspect-ratio: 1 / 1; /* Makes it a perfect square */
@@ -12,15 +20,15 @@
   object-fit: contain; /* Keep aspect ratio without distortion */
 }
 
-.folder-card {
-  display: block;
-  text-align: center;
-  transition: background-color 0.2s ease-in-out;
+.folder-icon {
+  width: 60%;
+  height: auto;
+  color: var(--bs-primary);
 }
 
-.folder-icon {
-  width: 50%;
-  height: auto;
+.card-body {
+  text-align: center;
+  padding: 0 .5rem .5rem .5rem !important;
 }
 
 .card-text {
