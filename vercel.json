@@ -1,14 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/proxy/:subdomain/:path*",
-      "destination": "https://:subdomain.filelu.live/:path*",
-      "has": [
-        {
-          "type": "query",
-          "key": "bypass"
-        }
-      ]
+      "source": "/proxy",
+      "destination": "/api/proxy"
     },
     {
       "source": "/config",
