@@ -8,6 +8,29 @@ export default class AppUtils {
   private static IMAGE_EXT: string[] = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
 
   /**
+   * Get blob type by checking extension name of file.
+   * @param fileName File name.
+   * @returns The blob type.
+   */
+  static getBlobTypeByExtName(fileName: string) {
+    if (fileName && -1 !== fileName.indexOf('.')) {
+      const extName = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+      if (['.jpg', '.jpeg'].includes(extName)) {
+        return 'image/jpeg';
+      } else if ('.png' === extName) {
+        return 'image/png';
+      } else if ('.gif' === extName) {
+        return 'image/gif';
+      } else if ('.bmp' === extName) {
+        return 'image/bmp';
+      } else if ('.webp' === extName) {
+        return 'image/webp';
+      }
+    }
+    return 'application/octet-stream';
+  }
+
+  /**
    * Get the error message from string or Error object.
    * @param ex Error message or error object.
    * @returns Just the string error message.
@@ -27,9 +50,13 @@ export default class AppUtils {
    * @returns Image only files.
    */
   static extractImages(files: FileItem[]): FileItem[] {
-    return files.filter((item: FileItem) =>
-      this.IMAGE_EXT.some((ext: string) =>
-        item.name.toLowerCase().endsWith(ext)));
+    return files.filter((item: FileItem) => {
+      let fileName = item.name.toLowerCase();
+      if (fileName.endsWith('.enc')) {
+        fileName = fileName.substring(0, fileName.length - 4);
+      }
+      return this.IMAGE_EXT.some((ext: string) => fileName.endsWith(ext))
+    });
   }
 
 

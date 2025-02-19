@@ -1,8 +1,10 @@
 {
   "name": "gallerylu",
   "description": "A React-based image gallery for previewing images uploaded to FileLu cloud storage.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
+  "author": "Albert L <hkalbertl@users.noreply.github.com>",
+  "license": "MIT",
   "scripts": {
     "dev": "cross-env BROWSER=brave vite",
     "build": "tsc -b && vite build",
@@ -10,11 +12,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vercel/node": "^5.1.7",
     "bootstrap": "^5.3.3",
+    "node-fetch": "^3.3.2",
     "react": "^19.0.0",
+    "react-bootstrap": "^2.10.9",
     "react-bootstrap-icons": "^1.11.5",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.5",
+    "wcipher": "^0.0.4",
     "yet-another-react-lightbox": "^3.21.7"
   },
   "devDependencies": {

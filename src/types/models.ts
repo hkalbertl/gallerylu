@@ -34,6 +34,11 @@ export interface FileItem {
    * The title displayed in Gallery LightBox.
    */
   title: string;
+
+  /**
+   * File is encrypted or not.
+   */
+  encrypted: boolean;
 }
 
 export interface FolderItem {

@@ -64,14 +64,22 @@ export default class ApiUtils {
         const json = await resp.json();
         if (json.result && Array.isArray(json.result.files) && Array.isArray(json.result.folders)) {
           // Cast the FileLu files to FileItem and apply sorting
-          const files: FileItem[] = json.result.files.map((item: any) => ({
-            code: item.file_code,
-            name: item.name,
-            title: `${item.name} (${item.uploaded})`,
-            uploaded: item.uploaded,
-            parent: item.fld_id,
-            thumbnail: item.thumbnail,
-          } as FileItem));
+          const files: FileItem[] = json.result.files.map((item: any) => {
+            const fileItem = {
+              code: item.file_code,
+              name: item.name,
+              title: `${item.name} (${item.uploaded})`,
+              uploaded: item.uploaded,
+              parent: item.fld_id,
+              thumbnail: item.thumbnail,
+              encrypted: false
+            } as FileItem;
+            if (fileItem.name.endsWith('.enc')) {
+              fileItem.thumbnail = '/locked.png';
+              fileItem.encrypted = true;
+            }
+            return fileItem;
+          });
           if ('uploaded' === sortType) {
             files.sort(AppUtils.sortByTimeDesc);
           } else {

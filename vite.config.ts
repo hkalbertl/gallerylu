@@ -19,14 +19,12 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     open: '/',
-    /*
     proxy: mode === "development" ? {
-      "/api": {
-        target: "https://filelu.com/api",
+      "/api/proxy": {
+        target: 'https://3434.filelu.live/d/',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
+        rewrite: (path) => path.replace(/^\/api\/proxy/, '/api/proxy'),
       },
     } : undefined,
-    */
   }
 }));

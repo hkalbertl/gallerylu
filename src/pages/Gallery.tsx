@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
+import { Alert, Breadcrumb, Button, ButtonGroup, Spinner } from "react-bootstrap";
 
 import { Folder as FolderIcon, ExclamationTriangle, DashCircle, SortAlphaDown, Clock } from "react-bootstrap-icons";
 import { Lightbox } from "yet-another-react-lightbox";
 import { Captions, Zoom } from "yet-another-react-lightbox/plugins";
+import WCipher from "wcipher";
 
 import { FileItem, FolderItem, ListFolderResult, PathMap, PathBreadcrumb } from "../types/models";
 import ApiUtils from "../utils/ApiUtils";
 import AppUtils from "../utils/AppUtils";
+import PasswordModal from "../components/PasswordModal";
 
 import "yet-another-react-lightbox/styles.css";
 import "yet-another-react-lightbox/plugins/captions.css";
@@ -19,6 +22,7 @@ function Gallery() {
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const [encPassword, setEncPassword] = useState<string | null>(null);
   const [folderPath, setFolderPath] = useState<string>('');
   const [breadcrumbs, setBreadcrumbs] = useState<PathBreadcrumb[]>([]);
   const [listFolderId, setListFolderId] = useState<number>(0);
@@ -26,6 +30,7 @@ function Gallery() {
   const [sortType, setSortType] = useState<"name" | "uploaded">("name");
   const [images, setImages] = useState<FileItem[]>([]);
   const [folders, setFolders] = useState<FolderItem[]>([]);
+  const [askPassword, setAskPassword] = useState(false);
   const [fetchUrl, setFetchUrl] = useState<boolean>(false);
   const [summary, setSummary] = useState<string>('');
   const [index, setIndex] = useState(-1);
@@ -39,21 +44,6 @@ function Gallery() {
     } else {
       navigate("/config"); // Redirect to Config page
     }
-    /*
-    const encryptedData = localStorage.getItem("apiKey");
-    AppUtils.decryptData(encryptedData).then(decryptedKey => {
-      if (!decryptedKey) {
-        // Redirect to Config page
-        navigate("/config");
-      } else {
-        // API key found
-        setApiKey(decryptedKey);
-      }
-    }).catch(err => {
-      console.warn('Failed to load saved data: ' + AppUtils.getErrorMessage(err));
-      navigate("/config");
-    });
-    */
   }, [navigate]); // Dependency array to avoid unnecessary rerenders
 
   // Extract path from URL
@@ -138,6 +128,7 @@ function Gallery() {
     }
   }, [location, apiKey]);
 
+
   useEffect(() => {
     // Check API key
     if (!apiKey || !folderPath) return;
@@ -161,9 +152,14 @@ function Gallery() {
         const imageFiles = AppUtils.extractImages(listResult.files);
         setImages(imageFiles);
 
-        // Fetch full size URLs
-        setFetchUrl(true);
-
+        // Ask for decryption password if there are one or more encrypted files
+        if (!encPassword && imageFiles.some(f => f.encrypted)) {
+          // Ask for password if there are more than one encrypted images
+          setAskPassword(true);
+        } else {
+          // Fetch full size URLs
+          setFetchUrl(true);
+        }
         // Show summary and stop loading
         setSummary(`${listResult.folders.length} folder(s), ${imageFiles.length} image(s) out of ${listResult.files.length} file(s)`);
       } catch (ex) {
@@ -196,6 +192,19 @@ function Gallery() {
       const batchSize = 10;
       const newImages = [...images];
 
+      // Change locked icon to loading
+      let hasEncrypted = false;
+      newImages.forEach(image => {
+        if (image.encrypted) {
+          image.thumbnail = '/loading.png';
+          hasEncrypted = true;
+        }
+      });
+      if (hasEncrypted) {
+        setImages([...newImages]);
+      }
+
+      let shouldClearPassword = false;
       for (let b = 0; b < newImages.length; b += batchSize) {
         // Make sure it is working on the same path
         if (isCancelled) {
@@ -211,9 +220,49 @@ function Gallery() {
         await Promise.all(batch.map(async (image) => {
           // Request full size URL
           const linkResult = await ApiUtils.getFileDirectLink(apiKey!, image.code);
-          // Update to target item
-          image.title = `${image.name} (${AppUtils.toDisplaySize(linkResult.size)} / ${image.uploaded})`;
-          image.src = linkResult.url;
+          // Check current image is encrypted or not
+          if (image.encrypted) {
+            // Check password
+            if (encPassword) {
+              // Download encrypted content
+
+              // FileLu assigned CORS headers on the download server, it is required to use proxy to bypass the security checking
+              const proxiedUrl = import.meta.env.PROD
+                // ? `https://api.cors.lol/?url=${encodeURIComponent(linkResult.url)}`
+                ? `/api/proxy?url=${encodeURIComponent(linkResult.url)}`
+                : `/api/proxy/${linkResult.url.substring(linkResult.url.indexOf('/d/') + 3)}`;
+
+              const resp = await fetch(proxiedUrl);
+              if (resp.ok) {
+                // Try to decrypt the image
+                try {
+                  const fileNameWithoutEnc = image.name.substring(0, image.name.length - 4);
+                  const encryptedBytes = await resp.arrayBuffer();
+                  const decryptedBytes = await WCipher.decrypt(encPassword, new Uint8Array(encryptedBytes));
+                  const imageBlob = new Blob([decryptedBytes], { type: AppUtils.getBlobTypeByExtName(fileNameWithoutEnc) });
+
+                  const imageUrl = URL.createObjectURL(imageBlob);
+                  image.title = `${fileNameWithoutEnc} (${AppUtils.toDisplaySize(decryptedBytes.length)} / ${image.uploaded})`;
+                  image.src = imageUrl;
+                  image.thumbnail = imageUrl;
+                } catch (ex) {
+                  console.warn('Failed to decrypted content: ' + image.name, ex);
+                  image.thumbnail = '/stop-error.png';
+                  shouldClearPassword = true;
+                }
+              } else {
+                console.warn('Failed to download encrypted content: ' + image.name);
+                image.thumbnail = '/stop-error.png';
+              }
+            } else {
+              // No password?
+              image.thumbnail = '/stop-error.png';
+            }
+          } else {
+            // Not encrypted image, update full URL to target item
+            image.title = `${image.name} (${AppUtils.toDisplaySize(linkResult.size)} / ${image.uploaded})`;
+            image.src = linkResult.url;
+          }
         }));
 
         // Make sure it is working on the same path
@@ -231,6 +280,9 @@ function Gallery() {
           // Sleep for 500ms to prevent rate limiting
           await AppUtils.sleep(500);
         }
+      }
+      if (shouldClearPassword) {
+        setEncPassword(null);
       }
     };
 
@@ -265,52 +317,50 @@ function Gallery() {
     }
   };
 
+  const handlePasswordSubmit = (password: string) => {
+    setEncPassword(password);
+    setAskPassword(false);
+    setFetchUrl(true);
+  };
+
   return (
-    <div>
+    <>
       <div className="d-flex align-items-center">
-        <nav className="flex-grow-1" aria-label="breadcrumb">
-          <ol className="breadcrumb mb-0">
-            <li className="breadcrumb-item"><Link to="/gallery">[Root]</Link></li>
-            {!isLoading && 0 < breadcrumbs.length && <>
-              {breadcrumbs.map((item, level) => (level === breadcrumbs.length - 1 ?
-                <li key={level} className="breadcrumb-item active" aria-current="page">
-                  {item.name}
-                </li> :
-                <li key={level} className="breadcrumb-item">
-                  <Link to={item.navPath}>{item.name}</Link>
-                </li>
-              )
-              )}
-            </>}
-          </ol>
-        </nav>
+        <Breadcrumb className="flex-grow-1 mb-0">
+          <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/gallery" }}>[Root]</Breadcrumb.Item>
+          {!isLoading && 0 < breadcrumbs.length && <>
+            {breadcrumbs.map((item, level) =>
+              <Breadcrumb.Item key={level} active={(level === breadcrumbs.length - 1)}
+                linkAs={Link} linkProps={{ to: item.navPath }}>
+                {item.name}
+              </Breadcrumb.Item>
+            )}
+          </>}
+        </Breadcrumb>
         <div>
           {fetchUrl ? <>
-            <div className="spinner-border spinner-border-sm text-primary" role="status" title="Retrieving full size image URLs...">
-              <span className="visually-hidden">Retrieving full size image URLs...</span>
-            </div>
+            <Spinner size="sm" variant="primary" title="Retrieving full size image URLs..." />
           </> : <>
-            <div className="btn-group btn-group-sm" role="group">
-              <button className={`btn btn-outline-primary ${sortType === "name" ? "active" : ""}`}
-                title="Sort by file name" onClick={() => setSortType("name")}>
+            <ButtonGroup size="sm">
+              <Button variant="outline-primary" active={sortType === "name"} title="Sort by file name"
+                onClick={() => setSortType("name")}>
                 <SortAlphaDown />
-              </button>
-              <button className={`btn btn-outline-primary ${sortType === "uploaded" ? "active" : ""}`}
-                title="Sort by latest uploaded time" onClick={() => setSortType("uploaded")}>
+              </Button>
+              <Button variant="outline-primary" active={sortType === "uploaded"} title="Sort by latest uploaded time"
+                onClick={() => setSortType("uploaded")}>
                 <Clock />
-              </button>
-            </div>
+              </Button>
+            </ButtonGroup>
           </>}
         </div>
       </div>
       <hr />
 
-      {isLoading && <div className="alert alert-info text-center" role="alert">
-        <div className="spinner-border spinner-border-sm" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-        &nbsp;Reading folder content...
-      </div>}
+      {isLoading &&
+        <Alert variant="info" className="text-center">
+          <Spinner size="sm" />&nbsp;Reading folder content...
+        </Alert>
+      }
 
       {!isLoading && <>
         {(0 !== folders.length || 0 !== images.length) && <>
@@ -353,24 +403,29 @@ function Gallery() {
           </div>
         </>}
         {0 === folders.length && 0 === images.length && !failMsg && <>
-          <div className="alert alert-warning text-center" role="alert">
+          <Alert variant="warning" className="text-center">
             <ExclamationTriangle />
             &nbsp;No images in this folder.
-          </div>
+          </Alert>
         </>}
         {failMsg && <>
-          <div className="alert alert-danger text-center" role="alert">
-            <DashCircle />
-            &nbsp;{failMsg} <Link to="/gallery">Go back to root folder</Link>.
-          </div>
+          <Alert variant="danger" className="text-center">
+            <DashCircle />&nbsp;{failMsg}&nbsp;
+            <Alert.Link href="/gallery">Go back to root folder</Alert.Link>.
+          </Alert>
         </>}
-
         {summary && <>
           <hr />
           <div className="text-body-secondary text-end">{summary}</div>
         </>}
       </>}
-    </div>
+      <PasswordModal
+        show={askPassword}
+        title="Decryption Password"
+        onClose={() => setAskPassword(false)}
+        onSubmit={handlePasswordSubmit}
+      />
+    </>
   );
 }
 
