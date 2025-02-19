@@ -1,8 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/proxy/3434/:path*",
-      "destination": "https://3434.filelu.live/:path*"
+      "source": "/proxy/:subdomain/:path*",
+      "destination": "https://:subdomain.filelu.live/:path*"
     },
     {
       "source": "/config",
