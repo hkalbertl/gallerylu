@@ -227,10 +227,12 @@ function Gallery() {
               // Download encrypted content
 
               // FileLu assigned CORS headers on the download server, it is required to use proxy to bypass the security checking
-              const proxiedUrl = import.meta.env.PROD
-                // ? `https://api.cors.lol/?url=${encodeURIComponent(linkResult.url)}`
-                ? `/proxy?url=${encodeURIComponent(linkResult.url)}`
-                : `/api/proxy/${linkResult.url.substring(linkResult.url.indexOf('/d/') + 3)}`;
+              let proxiedUrl = `/api/proxy/${linkResult.url.substring(linkResult.url.indexOf('/d/') + 3)}`;
+              if (import.meta.env.PROD) {
+                // proxiedUrl = `https://api.cors.lol/?url=${encodeURIComponent(linkResult.url)}`;
+                const tokens = linkResult.url.split('.filelu.live/');
+                proxiedUrl = `/proxy/${tokens[0].substring(tokens[0].indexOf('//') + 2)}/${tokens[1]}`;
+              }
 
               const resp = await fetch(proxiedUrl);
               if (resp.ok) {
