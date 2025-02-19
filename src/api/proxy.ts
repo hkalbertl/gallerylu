@@ -9,9 +9,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    console.log('Proxying URL: ' + fileUrl);
     const response = await fetch(fileUrl);
     res.setHeader("Content-Type", response.headers.get("Content-Type") || "application/octet-stream");
+    res.setHeader("Access-Control-Allow-Origin", "https://gallerylu.vercel.app");
     response.body?.pipe(res);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch file" });

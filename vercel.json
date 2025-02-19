@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/proxy",
-      "destination": "/api/proxy.ts"
+      "destination": "/api/proxy"
     },
     {
       "source": "/(.*)",
