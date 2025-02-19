@@ -6,7 +6,11 @@ A React-based image gallery for previewing images uploaded to [FileLu](https://f
 <details>
   <summary>Click to expand</summary>
 
-  GalleryLu is my second open-source contribution to the FileLu ecosystem, following the <a href="https://github.com/hkalbertl/web-image-categorizer" target="_blank">Web Image Categorizer (WIC)</a>.  While using FileLu to manage images uploaded by WIC, I identified some usability challenges.  The folder navigation could be more efficient, and the image preview lacked the convenience of "next" and "previous" buttons.  GalleryLu addresses these issues, providing a streamlined image browsing experience.  Critically, user privacy is a core principle.  All data processing occurs within the client's browser, and the application, hosted on Vercel, is purely static.  Data transmission is strictly limited to communication with the FileLu API.
+  GalleryLu is my second open-source contribution to the FileLu ecosystem, following the <a href="https://github.com/hkalbertl/web-image-categorizer" target="_blank">Web Image Categorizer (WIC)</a>. While using FileLu to manage images uploaded by WIC, I identified some usability challenges. The folder navigation could be more efficient, and the image preview lacked the convenience of "next" and "previous" buttons. GalleryLu addresses these issues, providing a streamlined image browsing experience.
+
+  Starting from version 0.1.0, a file encryption feature has been added. Since FileLu does not provide settings to modify the CORS response header, I had no choice but to use Vercel's rewrite module, which acts as a reverse proxy, to bypass the CORS issue. The Vercel rewrite module is only used for encrypted images; standard images are not affected and are served directly from FileLu. As the images passing through Vercel are encrypted, I believe the current implementation remains secure.
+
+  Critically, user privacy is a core principle. All data processing occurs within the client's browser, and the application, hosted on Vercel, is purely static. Data transmission is strictly limited to communication with the FileLu API.
 
   If you are new to FileLu, please consider to register by using my <a href="https://filelu.com/5155514948.html" target="_blank">referral link</a>.
 </details>
@@ -26,9 +30,14 @@ A React-based image gallery for previewing images uploaded to [FileLu](https://f
   * Seamless connection to FileLu's API using user-provided API keys.
   * Secure handling of API keys (client-side only, no server involved).
   * Data transfer directly between the user's browser and FileLu's servers.
+* Encryption
+  * Support viewing encrypted images uploaded by [Web Image Categorizer](https://github.com/hkalbertl/web-image-categorizer).
+  * Decryption is performed on client side. Password and decrypted data never transmitted outside the application.
 * User Privacy
   * Data privacy is a top priority.
-  * No user data (files, API keys) is transmitted to any third-party server other than FileLu.
+  * No API keys is transmitted to any third-party server other than FileLu.
+  * Standard images will be downloaded from FileLu directly.
+  * Encrypted images will be downloaded though Vercel rewrite module due to CORS issue.
   * All processing happens client-side in the user's browser.
 
 ## Demo
@@ -56,6 +65,7 @@ Welcome to GalleryLu. By using this application, you agree to the following term
 * GalleryLu supports common image formats only, such as `.jpg`, `.png`, `.bmp`, `.gif`, and `.webp`. Other files will be hidden.
 * GalleryLu depends on FileLu's API. GalleryLu will not work when the API service is unavailable.
 * FileLu does not provide an [API](https://filelu.com/pages/api/) that can list a folder's content with their direct download links. Therefore, GalleryLu has to request a download link for each image one by one. To prevent hitting the rate limit, GalleryLu may take time to load a large folder.
+* FileLu does not provide settings for [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors). The encrypted images cannot be downloaded from FileLu server directly. Vercel rewrite module is being used to bypass CORS issue.
 
 ## License
 Licensed under the [MIT](http://www.opensource.org/licenses/mit-license.php) license.

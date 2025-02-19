@@ -227,37 +227,50 @@ function Gallery() {
               // Download encrypted content
 
               // FileLu assigned CORS headers on the download server, it is required to use proxy to bypass the security checking
-              let proxiedUrl = `/proxy/${linkResult.url.substring(linkResult.url.indexOf('.live/') + 6)}`;
+              let proxiedUrl: string | null = null;
               if (import.meta.env.PROD) {
-                // proxiedUrl = `https://api.cors.lol/?url=${encodeURIComponent(linkResult.url)}`;
+                // Using the vercel rewrite feature to bypass CORS problem
                 const tokens = linkResult.url.split('.filelu.live/');
-                proxiedUrl = `/proxy/${tokens[0].substring(tokens[0].indexOf('//') + 2)}/${tokens[1]}`;
-              }
-
-              const resp = await fetch(proxiedUrl);
-              if (resp.ok) {
-                // Try to decrypt the image
-                try {
-                  const fileNameWithoutEnc = image.name.substring(0, image.name.length - 4);
-                  const encryptedBytes = await resp.arrayBuffer();
-                  const decryptedBytes = await WCipher.decrypt(encPassword, new Uint8Array(encryptedBytes));
-                  const imageBlob = new Blob([decryptedBytes], { type: AppUtils.getBlobTypeByExtName(fileNameWithoutEnc) });
-
-                  const imageUrl = URL.createObjectURL(imageBlob);
-                  image.title = `${fileNameWithoutEnc} (${AppUtils.toDisplaySize(decryptedBytes.length)} / ${image.uploaded})`;
-                  image.src = imageUrl;
-                  image.thumbnail = imageUrl;
-                } catch (ex) {
-                  console.warn('Failed to decrypted content: ' + image.name, ex);
-                  image.thumbnail = '/stop-error.png';
-                  shouldClearPassword = true;
+                if (tokens && 2 === tokens.length) {
+                  proxiedUrl = `/proxy/${tokens[0].substring(tokens[0].indexOf('//') + 2)}/${tokens[1]}`;
                 }
               } else {
-                console.warn('Failed to download encrypted content: ' + image.name);
+                // For development, use vite proxy server
+                proxiedUrl = `/proxy/${linkResult.url.substring(linkResult.url.indexOf('.live/') + 6)}`
+              }
+
+              if (proxiedUrl) {
+                const resp = await fetch(proxiedUrl);
+                if (resp.ok) {
+                  // Try to decrypt the image
+                  try {
+                    const fileNameWithoutEnc = image.name.substring(0, image.name.length - 4);
+                    const encryptedBytes = await resp.arrayBuffer();
+                    const decryptedBytes = await WCipher.decrypt(encPassword, new Uint8Array(encryptedBytes));
+                    const imageBlob = new Blob([decryptedBytes], { type: AppUtils.getBlobTypeByExtName(fileNameWithoutEnc) });
+
+                    const imageUrl = URL.createObjectURL(imageBlob);
+                    image.title = `${fileNameWithoutEnc} (${AppUtils.toDisplaySize(decryptedBytes.length)} / ${image.uploaded})`;
+                    image.src = imageUrl;
+                    image.thumbnail = imageUrl;
+                  } catch (ex) {
+                    console.warn('Failed to decrypted content: ' + image.name, ex);
+                    image.thumbnail = '/stop-error.png';
+                    shouldClearPassword = true;
+                  }
+                } else {
+                  // Fetch failed?
+                  image.title = `Failed to download encrypted content: HttpStatus=${resp.status}`;
+                  image.thumbnail = '/stop-error.png';
+                }
+              } else {
+                // No proxy image URL?
+                image.title = 'Unsupported FileLu URL: ' + linkResult.url;
                 image.thumbnail = '/stop-error.png';
               }
             } else {
               // No password?
+              image.title = 'Missing decryption passowrd.';
               image.thumbnail = '/stop-error.png';
             }
           } else {

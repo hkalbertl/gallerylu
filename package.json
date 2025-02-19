@@ -1,7 +1,7 @@
 {
   "name": "gallerylu",
   "description": "A React-based image gallery for previewing images uploaded to FileLu cloud storage.",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "type": "module",
   "author": "Albert L <hkalbertl@users.noreply.github.com>",
   "license": "MIT",
