@@ -75,6 +75,7 @@ export interface PathMap {
 
 export interface FileDirectLinkResult {
   url: string;
+  url_prem: string;
   size: number;
 }
 

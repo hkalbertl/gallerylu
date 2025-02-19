@@ -1,10 +1,11 @@
 import { VercelRequest, VercelResponse } from "@vercel/node";
 import fetch from "node-fetch";
 
+// Handle the reverse proxy to FileLu direct link data
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const fileUrl = req.query.url;
 
-  if (!fileUrl || typeof fileUrl !== 'string' || 0 !== fileUrl.search(/^https\:\/\/[0-9]+\.filelu\..+/i)) {
+  if (!fileUrl || typeof fileUrl !== 'string' || 0 !== fileUrl.search(/^https\:\/\/([0-9]+\.)?filelu\..+/i)) {
     return res.status(400).json({ error: "Missing or invalid file URL" });
   }
 

@@ -230,8 +230,9 @@ function Gallery() {
               let proxiedUrl = `/api/proxy/${linkResult.url.substring(linkResult.url.indexOf('/d/') + 3)}`;
               if (import.meta.env.PROD) {
                 // proxiedUrl = `https://api.cors.lol/?url=${encodeURIComponent(linkResult.url)}`;
-                const tokens = linkResult.url.split('.filelu.live/');
-                proxiedUrl = `/proxy/${tokens[0].substring(tokens[0].indexOf('//') + 2)}/${tokens[1]}`;
+                // const tokens = linkResult.url.split('.filelu.live/');
+                // proxiedUrl = `/proxy/${tokens[0].substring(tokens[0].indexOf('//') + 2)}/${tokens[1]}`;
+                proxiedUrl = `/proxy?url=${encodeURIComponent(linkResult.url)}`;
               }
 
               const resp = await fetch(proxiedUrl);
