@@ -37,8 +37,8 @@ A React-based image gallery for previewing images uploaded to [FileLu](https://f
   * Data privacy is a top priority.
   * No API keys is transmitted to any third-party server other than FileLu.
   * Standard images will be downloaded from FileLu directly.
-  * Encrypted images will be downloaded though Vercel rewrite module due to CORS issue.
-  * All processing happens client-side in the user's browser.
+  * Encrypted images will be downloaded through the [Vercel rewrite](https://vercel.com/docs/edge-network/rewrites) module due to [CORS issue](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors).
+  * All processing happens client-side in the user's web browser.
 
 ## Demo
 https://github.com/user-attachments/assets/6e20a637-1740-47ae-b6fd-faa1d3d2f68b
@@ -65,7 +65,7 @@ Welcome to GalleryLu. By using this application, you agree to the following term
 * GalleryLu supports common image formats only, such as `.jpg`, `.png`, `.bmp`, `.gif`, and `.webp`. Other files will be hidden.
 * GalleryLu depends on FileLu's API. GalleryLu will not work when the API service is unavailable.
 * FileLu does not provide an [API](https://filelu.com/pages/api/) that can list a folder's content with their direct download links. Therefore, GalleryLu has to request a download link for each image one by one. To prevent hitting the rate limit, GalleryLu may take time to load a large folder.
-* FileLu does not provide settings for [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors). The encrypted images cannot be downloaded from FileLu server directly. Vercel rewrite module is being used to bypass CORS issue.
+* FileLu does not provide settings for [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors). The encrypted images cannot be downloaded from FileLu server directly. [Vercel rewrite](https://vercel.com/docs/edge-network/rewrites) module is being used to bypass CORS issue.
 
 ## License
 Licensed under the [MIT](http://www.opensource.org/licenses/mit-license.php) license.

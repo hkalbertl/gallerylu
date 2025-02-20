@@ -229,38 +229,52 @@ function Gallery() {
               // FileLu assigned CORS headers on the download server, it is required to use proxy to bypass the security checking
               let proxiedUrl: string | null = null;
               if (import.meta.env.PROD) {
-                // Using the vercel rewrite feature to bypass CORS problem
+                // Using the vercel rewrite module to bypass CORS problem
                 const tokens = linkResult.url.split('.filelu.live/');
                 if (tokens && 2 === tokens.length) {
+                  // Extract the subdomain of direct download link and build the proxy URL
                   proxiedUrl = `/proxy/${tokens[0].substring(tokens[0].indexOf('//') + 2)}/${tokens[1]}`;
                 }
+                // Use direct download link
+                // proxiedUrl = linkResult.url;
               } else {
                 // For development, use vite proxy server
                 proxiedUrl = `/proxy/${linkResult.url.substring(linkResult.url.indexOf('.live/') + 6)}`
               }
 
+              // Check if proxied URL defined
               if (proxiedUrl) {
-                const resp = await fetch(proxiedUrl);
-                if (resp.ok) {
-                  // Try to decrypt the image
-                  try {
-                    const fileNameWithoutEnc = image.name.substring(0, image.name.length - 4);
-                    const encryptedBytes = await resp.arrayBuffer();
-                    const decryptedBytes = await WCipher.decrypt(encPassword, new Uint8Array(encryptedBytes));
-                    const imageBlob = new Blob([decryptedBytes], { type: AppUtils.getBlobTypeByExtName(fileNameWithoutEnc) });
+                try {
+                  // Try to download binary data by using GET request
+                  const resp = await fetch(proxiedUrl);
+                  if (resp.ok) {
+                    // Response OK! Try to decrypt the image
+                    try {
+                      // Trim the .enc extension, such as `image.jpg.enc` to `image.jpg`
+                      const fileNameWithoutEnc = image.name.substring(0, image.name.length - 4);
+                      const encryptedBytes = await resp.arrayBuffer();
+                      const decryptedBytes = await WCipher.decrypt(encPassword, new Uint8Array(encryptedBytes));
+                      const imageBlob = new Blob([decryptedBytes], { type: AppUtils.getBlobTypeByExtName(fileNameWithoutEnc) });
 
-                    const imageUrl = URL.createObjectURL(imageBlob);
-                    image.title = `${fileNameWithoutEnc} (${AppUtils.toDisplaySize(decryptedBytes.length)} / ${image.uploaded})`;
-                    image.src = imageUrl;
-                    image.thumbnail = imageUrl;
-                  } catch (ex) {
-                    console.warn('Failed to decrypted content: ' + image.name, ex);
+                      const imageUrl = URL.createObjectURL(imageBlob);
+                      image.title = `${fileNameWithoutEnc} (${AppUtils.toDisplaySize(decryptedBytes.length)} / ${image.uploaded})`;
+                      image.src = imageUrl;
+                      image.thumbnail = imageUrl;
+                    } catch (ex) {
+                      // Failed to decrypt, probably due to wrong password
+                      console.warn('Failed to decrypted content: ' + image.name, ex);
+                      image.thumbnail = '/stop-error.png';
+                      shouldClearPassword = true;
+                    }
+                  } else {
+                    // Fetch failed?
+                    image.title = `Failed to download encrypted content: HttpStatus=${resp.status}`;
                     image.thumbnail = '/stop-error.png';
-                    shouldClearPassword = true;
                   }
-                } else {
-                  // Fetch failed?
-                  image.title = `Failed to download encrypted content: HttpStatus=${resp.status}`;
+                } catch (ex) {
+                  // Download failed, such as CORS error
+                  console.warn('Failed to download encrypted content: ' + image.name, ex);
+                  image.title = `Failed to download encrypted content.`;
                   image.thumbnail = '/stop-error.png';
                 }
               } else {
