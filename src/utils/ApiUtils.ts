@@ -1,14 +1,12 @@
 import { FileItem, FolderItem, FileDirectLinkResult, ListFolderResult } from "../types/models";
 import AppUtils from "./AppUtils";
 
-const DIRECT_API_CALL = import.meta.env.VITE_DIRECT_API_CALL === "true";
 export default class ApiUtils {
 
   /**
    * FileLu API base URL.
-   * Vite proxy is used for `development` due to CORS issues.
    */
-  private static API_BASE_URL = `${DIRECT_API_CALL ? 'https://filelu.com' : ''}/api`;
+  private static API_BASE_URL = 'https://filelu.com/api';
 
   /**
    * Validate the FileLu API key.
