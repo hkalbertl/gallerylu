@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Alert, Breadcrumb, Button, ButtonGroup, Spinner } from "react-bootstrap";
-
 import { Folder as FolderIcon, ExclamationTriangle, DashCircle, SortAlphaDown, Clock } from "react-bootstrap-icons";
 import { Lightbox } from "yet-another-react-lightbox";
 import { Captions, Zoom } from "yet-another-react-lightbox/plugins";
@@ -17,6 +16,9 @@ import "yet-another-react-lightbox/plugins/captions.css";
 import '../css/gallery.css';
 
 function Gallery() {
+
+  const BATCH_SIZE = 6;
+  const BATCH_SLEEP = 400;
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,31 +46,34 @@ function Gallery() {
     } else {
       navigate("/config"); // Redirect to Config page
     }
-  }, [navigate]); // Dependency array to avoid unnecessary rerenders
+  }, [navigate]);
 
   // Extract path from URL
   useEffect(() => {
     // Check location and API key loaded
     if (!location || !apiKey) return;
     setIsLoading(true);
+    setIndex(-1);
 
     // Define variables
     let paths: PathMap = { ...mapping };
     const segments: PathBreadcrumb[] = [];
+
     // The pathname should be something like /gallery/path/to/subfolder
     const fileLuPath = location.pathname.substring(8);
     if (1 < fileLuPath.length) {
-      console.log('Build breadcrumb list for path: ', fileLuPath);
       // Build breadcrumbs
       let currentPath = '', parentId = 0;
       const pathSegments = fileLuPath.substring(1).split('/');
 
-      async function processSegments() {
-        let shouldSkip = false;
+      // Define async function to build breadcrumbs by path segments
+      const processSegments = async () => {
+        let shouldSkip = false, level = 0;
+        console.log('Build breadcrumb list for path: ' + fileLuPath);
         for (const pathSegment of pathSegments) {
           // Set current path
           currentPath += `/${pathSegment}`;
-          console.log('Processing breadcrumb path: ' + currentPath);
+          console.log(`L${++level}: ${currentPath}`);
 
           // Find target folder ID
           let folderId = 0;
@@ -76,18 +81,19 @@ function Gallery() {
             // Folder ID found in mapping
             folderId = paths[currentPath];
             parentId = folderId;
-            console.log('Folder ID for breadcrumb path found in mapping: ' + folderId);
+            console.log(`> Path mapping found: ID=${folderId}`);
           } else {
             // Folder is not found, retrieve it
             const folderContent: ListFolderResult = await ApiUtils.getFolderContent(apiKey!, parentId, sortType);
-            console.log(`${currentPath} content: Folders=${folderContent.folders.length}, Files=${folderContent.files.length}`);
+            console.log(`> List content: Folders=${folderContent.folders.length}, Files=${folderContent.files.length}`);
             folderContent.folders.forEach(folder => {
               // Update mapping
               paths = AppUtils.updatePathMap(paths, '/', folder);
-              // Keep if it is  current folder
+              // Keep if it is current folder
               if (folder.name === pathSegment) {
                 folderId = folder.id;
                 parentId = folderId;
+                console.log(`> Folder found: ID=${folderId}`);
               }
             });
           }
@@ -108,6 +114,8 @@ function Gallery() {
           throw 'File path is not found.';
         }
       }
+
+      // Use .then() style instead of await due to useEffect limitation
       processSegments().then(() => {
         // Use last parent ID as folder ID for listing
         setListFolderId(parentId);
@@ -124,11 +132,12 @@ function Gallery() {
       // This is root path
       console.log('Using root path.');
       setListFolderId(0);
+      setBreadcrumbs([]);
       setFolderPath('/');
     }
   }, [location, apiKey]);
 
-
+  // Load folder content
   useEffect(() => {
     // Check API key
     if (!apiKey || !folderPath) return;
@@ -189,7 +198,6 @@ function Gallery() {
       }
 
       // Fetch the full size image URL by batches
-      const batchSize = 10;
       const newImages = [...images];
 
       // Change locked icon to loading
@@ -205,7 +213,7 @@ function Gallery() {
       }
 
       let shouldClearPassword = false;
-      for (let b = 0; b < newImages.length; b += batchSize) {
+      for (let b = 0; b < newImages.length; b += BATCH_SIZE) {
         // Make sure it is working on the same path
         if (isCancelled) {
           console.warn('Working folder path changed...');
@@ -214,7 +222,7 @@ function Gallery() {
 
         // Get current batch
         console.log(`Fetching batch[${b}]...`);
-        const batch = newImages.slice(b, b + batchSize);
+        const batch = newImages.slice(b, b + BATCH_SIZE);
 
         // Make sure all items in current batch are finished
         await Promise.all(batch.map(async (image) => {
@@ -305,9 +313,9 @@ function Gallery() {
         console.log(`Fetch completed on batch[${b}]`);
 
         // Add delay if it is not the last batch
-        if (b + batchSize < newImages.length) {
+        if (b + BATCH_SIZE < newImages.length) {
           // Sleep for 500ms to prevent rate limiting
-          await AppUtils.sleep(500);
+          await AppUtils.sleep(BATCH_SLEEP);
         }
       }
       if (shouldClearPassword) {
@@ -320,7 +328,8 @@ function Gallery() {
     });
 
     return () => {
-      isCancelled = true; // Mark as cancelled when path changes
+      // Mark as cancelled when path changes
+      isCancelled = true;
     };
   }, [folderPath, fetchUrl]);
 
@@ -347,6 +356,7 @@ function Gallery() {
   };
 
   const handlePasswordSubmit = (password: string) => {
+    // Save encryption password in memory
     setEncPassword(password);
     setAskPassword(false);
     setFetchUrl(true);
@@ -356,14 +366,16 @@ function Gallery() {
     <>
       <div className="d-flex align-items-center">
         <Breadcrumb className="flex-grow-1 mb-0">
-          <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/gallery" }}>[Root]</Breadcrumb.Item>
-          {!isLoading && 0 < breadcrumbs.length && <>
-            {breadcrumbs.map((item, level) =>
-              <Breadcrumb.Item key={level} active={(level === breadcrumbs.length - 1)}
-                linkAs={Link} linkProps={{ to: item.navPath }}>
-                {item.name}
-              </Breadcrumb.Item>
-            )}
+          {!isLoading && <>
+            {0 < breadcrumbs.length && <>
+              <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/gallery" }}>[Root]</Breadcrumb.Item>
+              {breadcrumbs.map((item, level) =>
+                <Breadcrumb.Item key={level} active={(level === breadcrumbs.length - 1)}
+                  linkAs={Link} linkProps={{ to: item.navPath }}>
+                  {item.name}
+                </Breadcrumb.Item>
+              )}
+            </>}
           </>}
         </Breadcrumb>
         <div>
@@ -422,7 +434,7 @@ function Gallery() {
               ))}
               <Lightbox
                 plugins={[Captions, Zoom]}
-                captions={{ showToggle: true }}
+                captions={{ hidden: true, showToggle: true }}
                 index={index}
                 slides={images}
                 open={index >= 0}

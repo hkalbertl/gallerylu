@@ -1,5 +1,12 @@
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 import { FileItem, FolderItem, FileDirectLinkResult, ListFolderResult } from "../types/models";
 import AppUtils from "./AppUtils";
+
+// Load plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export default class ApiUtils {
 
@@ -7,6 +14,16 @@ export default class ApiUtils {
    * FileLu API base URL.
    */
   private static API_BASE_URL = 'https://filelu.com/api';
+
+  /**
+   * FileLu time zone for file uploaded date/time.
+   */
+  private static API_TIME_ZOME = 'America/New_York';
+
+  /**
+   * Date/time display format.
+   */
+  private static DATETIME_DISPLAY_FORMAT = 'YYYY-MM-DD HH:mm:ss';
 
   /**
    * Validate the FileLu API key.
@@ -66,12 +83,22 @@ export default class ApiUtils {
             const fileItem = {
               code: item.file_code,
               name: item.name,
-              title: `${item.name} (${item.uploaded})`,
-              uploaded: item.uploaded,
               parent: item.fld_id,
               thumbnail: item.thumbnail,
               encrypted: false
             } as FileItem;
+            // Convert time zone
+            if (item.uploaded) {
+              // FileLu is using EST time zone
+              const localTime = dayjs.tz(item.uploaded, ApiUtils.API_TIME_ZOME).tz(dayjs.tz.guess());
+              fileItem.uploaded = localTime.format(ApiUtils.DATETIME_DISPLAY_FORMAT);
+              fileItem.title = `${fileItem.name} (${fileItem.uploaded})`;
+            } else {
+              // No uploaded time?
+              fileItem.uploaded = '';
+              fileItem.title = fileItem.name;
+            }
+            // Check if current file is encrypted
             if (fileItem.name.endsWith('.enc')) {
               fileItem.thumbnail = '/locked.png';
               fileItem.encrypted = true;
