@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Alert, Breadcrumb, Button, ButtonGroup, Spinner } from "react-bootstrap";
-
 import { Folder as FolderIcon, ExclamationTriangle, DashCircle, SortAlphaDown, Clock } from "react-bootstrap-icons";
 import { Lightbox } from "yet-another-react-lightbox";
 import { Captions, Zoom } from "yet-another-react-lightbox/plugins";
@@ -17,6 +16,9 @@ import "yet-another-react-lightbox/plugins/captions.css";
 import '../css/gallery.css';
 
 function Gallery() {
+
+  const BATCH_SIZE = 6;
+  const BATCH_SLEEP = 400;
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,7 +46,7 @@ function Gallery() {
     } else {
       navigate("/config"); // Redirect to Config page
     }
-  }, [navigate]); // Dependency array to avoid unnecessary rerenders
+  }, [navigate]);
 
   // Extract path from URL
   useEffect(() => {
@@ -128,7 +130,7 @@ function Gallery() {
     }
   }, [location, apiKey]);
 
-
+  // Load folder content
   useEffect(() => {
     // Check API key
     if (!apiKey || !folderPath) return;
@@ -189,7 +191,6 @@ function Gallery() {
       }
 
       // Fetch the full size image URL by batches
-      const batchSize = 10;
       const newImages = [...images];
 
       // Change locked icon to loading
@@ -205,7 +206,7 @@ function Gallery() {
       }
 
       let shouldClearPassword = false;
-      for (let b = 0; b < newImages.length; b += batchSize) {
+      for (let b = 0; b < newImages.length; b += BATCH_SIZE) {
         // Make sure it is working on the same path
         if (isCancelled) {
           console.warn('Working folder path changed...');
@@ -214,7 +215,7 @@ function Gallery() {
 
         // Get current batch
         console.log(`Fetching batch[${b}]...`);
-        const batch = newImages.slice(b, b + batchSize);
+        const batch = newImages.slice(b, b + BATCH_SIZE);
 
         // Make sure all items in current batch are finished
         await Promise.all(batch.map(async (image) => {
@@ -305,9 +306,9 @@ function Gallery() {
         console.log(`Fetch completed on batch[${b}]`);
 
         // Add delay if it is not the last batch
-        if (b + batchSize < newImages.length) {
+        if (b + BATCH_SIZE < newImages.length) {
           // Sleep for 500ms to prevent rate limiting
-          await AppUtils.sleep(500);
+          await AppUtils.sleep(BATCH_SLEEP);
         }
       }
       if (shouldClearPassword) {
@@ -320,7 +321,8 @@ function Gallery() {
     });
 
     return () => {
-      isCancelled = true; // Mark as cancelled when path changes
+      // Mark as cancelled when path changes
+      isCancelled = true;
     };
   }, [folderPath, fetchUrl]);
 
@@ -347,6 +349,7 @@ function Gallery() {
   };
 
   const handlePasswordSubmit = (password: string) => {
+    // Save encryption password in memory
     setEncPassword(password);
     setAskPassword(false);
     setFetchUrl(true);
