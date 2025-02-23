@@ -24,7 +24,7 @@ function Gallery() {
   /**
    * Maximum number of images will be loaded when entering a folder.
    */
-  const FIRST_LOAD_IMAGES = 24;
+  const FIRST_LOAD_IMAGES = 12;
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -407,7 +407,15 @@ function Gallery() {
   };
 
   const loadRemainingImages = () => {
-    setOnScreenImages([...allImages]);
+    let newImages = [...allImages];
+    if ('uploaded' === sortType) {
+      // Sort by time DESC
+      newImages.sort(AppUtils.sortByTimeDesc);
+    } else {
+      // Sort by name ASC
+      newImages.sort(AppUtils.sortByNameAsc);
+    }
+    setOnScreenImages(newImages);
     setFetchUrl(true);
     setHasMoreImage(false);
   };
