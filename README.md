@@ -27,17 +27,17 @@ A React-based image gallery for previewing images uploaded to [FileLu](https://f
   * Image metadata display in lightbox view.
   * Sort images by file name or uploaded time.
 * FileLu Integration
-  * Seamless connection to FileLu's API using user-provided API keys.
-  * Secure handling of API keys (client-side only, no server involved).
+  * Seamless connection to FileLu's API using user-provided API key.
+  * Secure handling of API key (client-side only, no server involved).
   * Data transfer directly between the user's browser and FileLu's servers.
 * Encryption
   * Support viewing encrypted images uploaded by [Web Image Categorizer](https://github.com/hkalbertl/web-image-categorizer).
   * Decryption is performed on client side. Password and decrypted data never transmitted outside the application.
 * User Privacy
   * Data privacy is a top priority.
-  * No API keys is transmitted to any third-party server other than FileLu.
+  * No API keys are transmitted to any third-party server other than FileLu.
   * Standard images will be downloaded from FileLu directly.
-  * Encrypted images will be downloaded through the [Vercel rewrite](https://vercel.com/docs/edge-network/rewrites) module due to [CORS issue](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors).
+  * Encrypted images will be downloaded through the [Vercel rewrite](https://vercel.com/docs/edge-network/rewrites) module due to [CORS issue](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors) and decrypted on user's browser.
   * All processing happens client-side in the user's web browser.
 
 ## Demo
