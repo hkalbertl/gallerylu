@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Alert, Breadcrumb, Button, ButtonGroup, Spinner } from "react-bootstrap";
-import { Folder as FolderIcon, ExclamationTriangle, DashCircle, SortAlphaDown, Clock } from "react-bootstrap-icons";
+import { Folder as FolderIcon, Images, ExclamationTriangle, DashCircle, SortAlphaDown, Clock } from "react-bootstrap-icons";
 import { Lightbox } from "yet-another-react-lightbox";
 import { Captions, Zoom } from "yet-another-react-lightbox/plugins";
 import WCipher from "wcipher";
-import { openDB } from "idb";
 
 import { FileItem, FolderItem, ListFolderResult, PathMap, PathBreadcrumb } from "../types/models";
 import ApiUtils from "../utils/ApiUtils";
 import AppUtils from "../utils/AppUtils";
+import ImageCacheUtils from "../utils/ImageCacheUtils";
 import PasswordModal from "../components/PasswordModal";
 
 import "yet-another-react-lightbox/styles.css";
@@ -21,6 +21,11 @@ function Gallery() {
   const BATCH_SIZE = 6;
   const BATCH_SLEEP = 400;
 
+  /**
+   * Maximum number of images will be loaded when entering a folder.
+   */
+  const FIRST_LOAD_IMAGES = 24;
+
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
@@ -31,32 +36,15 @@ function Gallery() {
   const [listFolderId, setListFolderId] = useState<number>(0);
   const [mapping, setMapping] = useState<PathMap>({});
   const [sortType, setSortType] = useState<"name" | "uploaded">("name");
-  const [images, setImages] = useState<FileItem[]>([]);
+  const [allImages, setAllImages] = useState<FileItem[]>([]);
+  const [onScreenImages, setOnScreenImages] = useState<FileItem[]>([]);
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [askPassword, setAskPassword] = useState(false);
   const [fetchUrl, setFetchUrl] = useState<boolean>(false);
+  const [hasMoreImage, setHasMoreImage] = useState<boolean>(false);
   const [summary, setSummary] = useState<string>('');
   const [index, setIndex] = useState(-1);
   const [failMsg, setFailMsg] = useState<string>('');
-
-  const dbPromise = openDB("GalleryCache", 1, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains("images")) {
-        db.createObjectStore("images", { keyPath: "id" });
-      }
-    },
-  });
-
-  const saveImageCache = async (id: string, encryptedBytes: Uint8Array) => {
-    const db = await dbPromise;
-    await db.put("images", { id, data: encryptedBytes, timestamp: Date.now() });
-  };
-
-  const getImageCache = async (id: string): Promise<Uint8Array | null> => {
-    const db = await dbPromise;
-    const entry = await db.get("images", id);
-    return entry ? entry.data : null;
-  };
 
   // Check API key exists, or redirect to config page when not found
   useEffect(() => {
@@ -74,6 +62,10 @@ function Gallery() {
     if (!location || !apiKey) return;
     setIsLoading(true);
     setIndex(-1);
+    setHasMoreImage(false);
+
+    // Clear old image cache
+    ImageCacheUtils.deleteOldCaches();
 
     // Define variables
     let paths: PathMap = { ...mapping };
@@ -178,11 +170,21 @@ function Gallery() {
         }));
 
         // Filter out non-images files and find the direct link
-        const imageFiles = AppUtils.extractImages(listResult.files);
-        setImages(imageFiles);
+        const folderImages = AppUtils.extractImages(listResult.files);
+        setAllImages(folderImages);
+
+        // Set viewable images
+        let viewableImages: FileItem[];
+        if (FIRST_LOAD_IMAGES < folderImages.length) {
+          viewableImages = folderImages.slice(0, FIRST_LOAD_IMAGES);
+          setHasMoreImage(true);
+        } else {
+          viewableImages = folderImages;
+        }
+        setOnScreenImages(viewableImages);
 
         // Ask for decryption password if there are one or more encrypted files
-        if (!encPassword && imageFiles.some(f => f.encrypted)) {
+        if (!encPassword && viewableImages.some(f => f.encrypted)) {
           // Ask for password if there are more than one encrypted images
           setAskPassword(true);
         } else {
@@ -190,7 +192,7 @@ function Gallery() {
           setFetchUrl(true);
         }
         // Show summary and stop loading
-        setSummary(`${listResult.folders.length} folder(s), ${imageFiles.length} image(s) out of ${listResult.files.length} file(s)`);
+        setSummary(`${listResult.folders.length} folder(s), ${viewableImages.length} image(s) out of ${listResult.files.length} file(s)`);
       } catch (ex) {
         // Error occurred?
         const errorMsg = AppUtils.getErrorMessage(ex);
@@ -213,12 +215,12 @@ function Gallery() {
     let isCancelled = false;
     const fetchFullUrls = async () => {
       // Exit if images not loaded
-      if (0 === images.length) {
+      if (0 === onScreenImages.length) {
         return true;
       }
 
       // Fetch the full size image URL by batches
-      const newImages = [...images];
+      const newImages = [...onScreenImages];
 
       // Change locked icon to loading
       let hasEncrypted = false;
@@ -229,7 +231,7 @@ function Gallery() {
         }
       });
       if (hasEncrypted) {
-        setImages([...newImages]);
+        setOnScreenImages([...newImages]);
       }
 
       let shouldClearPassword = false;
@@ -253,7 +255,7 @@ function Gallery() {
             // Check password
             if (encPassword) {
               // Check file cache
-              let encryptedBytes: Uint8Array | null = await getImageCache(image.code);
+              let encryptedBytes: Uint8Array | null = await ImageCacheUtils.getImageCache(image.code);
               if (!encryptedBytes) {
                 // Image cache not found, download encrypted content
 
@@ -283,7 +285,7 @@ function Gallery() {
                         // Response OK! Put data to encryptedBytes
                         encryptedBytes = new Uint8Array(await resp.arrayBuffer());
                         // Cache the data
-                        saveImageCache(image.code, encryptedBytes);
+                        ImageCacheUtils.saveImageCache(image.code, encryptedBytes);
                       } catch (ex) {
                         // Failed to turn downloaded data to byte array
                         console.warn('Failed to turn download data to encrypted bytes: ' + image.name, ex);
@@ -347,7 +349,7 @@ function Gallery() {
         }
 
         // Update to the gallery
-        setImages([...newImages]);
+        setOnScreenImages([...newImages]);
         console.log(`Fetch completed on batch[${b}]`);
 
         // Add delay if it is not the last batch
@@ -373,9 +375,9 @@ function Gallery() {
 
   // Sort images
   useEffect(() => {
-    if (!images.length) return;
+    if (!onScreenImages.length) return;
 
-    const newImages = [...images];
+    let newImages = [...allImages];
     if ('uploaded' === sortType) {
       // Sort by time DESC
       newImages.sort(AppUtils.sortByTimeDesc);
@@ -383,12 +385,16 @@ function Gallery() {
       // Sort by name ASC
       newImages.sort(AppUtils.sortByNameAsc);
     }
-    setImages(newImages);
+    if (hasMoreImage) {
+      newImages = newImages.slice(0, FIRST_LOAD_IMAGES);
+    }
+    setOnScreenImages(newImages);
+    setFetchUrl(true);
   }, [sortType]);
 
   const handleImageClick = (imageIndex: number) => {
     // Show lightbox only when image full size URLs loaded
-    if (images && imageIndex < images.length && images[imageIndex].src) {
+    if (onScreenImages && imageIndex < onScreenImages.length && onScreenImages[imageIndex].src) {
       setIndex(imageIndex);
     }
   };
@@ -398,6 +404,12 @@ function Gallery() {
     setEncPassword(password);
     setAskPassword(false);
     setFetchUrl(true);
+  };
+
+  const loadRemainingImages = () => {
+    setOnScreenImages([...allImages]);
+    setFetchUrl(true);
+    setHasMoreImage(false);
   };
 
   return (
@@ -442,7 +454,7 @@ function Gallery() {
       }
 
       {!isLoading && <>
-        {(0 !== folders.length || 0 !== images.length) && <>
+        {(0 !== folders.length || 0 !== onScreenImages.length) && <>
           <div className="row">
             {folders.map(folder => (
               <div key={folder.id} className="col-6 col-md-4 col-lg-3 col-xxl-2 mb-4" title={folder.name}>
@@ -456,8 +468,8 @@ function Gallery() {
                 </Link>
               </div>
             ))}
-            {0 < images.length && <>
-              {images.map((image, imageIndex) => (
+            {0 < onScreenImages.length && <>
+              {onScreenImages.map((image, imageIndex) => (
                 <div key={image.code} className="col-6 col-md-4 col-lg-3 col-xxl-2 mb-4" title={image.title}>
                   <div className="card">
                     <div className="image-container">
@@ -474,14 +486,16 @@ function Gallery() {
                 plugins={[Captions, Zoom]}
                 captions={{ hidden: true, showToggle: true }}
                 index={index}
-                slides={images}
+                slides={onScreenImages}
                 open={index >= 0}
                 close={() => setIndex(-1)}
               />
             </>}
           </div>
+          {hasMoreImage && <button type="button" className="btn btn-primary w-100" onClick={() => loadRemainingImages()}>
+            <Images />&nbsp;Load remaining images</button>}
         </>}
-        {0 === folders.length && 0 === images.length && !failMsg && <>
+        {0 === folders.length && 0 === onScreenImages.length && !failMsg && <>
           <Alert variant="warning" className="text-center">
             <ExclamationTriangle />
             &nbsp;No images in this folder.
