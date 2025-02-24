@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Alert, Breadcrumb, Button, ButtonGroup, Spinner } from "react-bootstrap";
-import { Folder as FolderIcon, ExclamationTriangle, DashCircle, SortAlphaDown, Clock } from "react-bootstrap-icons";
+import { Folder as FolderIcon, Images, ExclamationTriangle, DashCircle, SortAlphaDown, Clock } from "react-bootstrap-icons";
 import { Lightbox } from "yet-another-react-lightbox";
 import { Captions, Zoom } from "yet-another-react-lightbox/plugins";
 import WCipher from "wcipher";
 
-import { FileItem, FolderItem, ListFolderResult, PathMap, PathBreadcrumb } from "../types/models";
+import { FileItem, FolderItem, ListFolderResult, PathMap, PathBreadcrumb, SortType } from "../types/models";
 import ApiUtils from "../utils/ApiUtils";
 import AppUtils from "../utils/AppUtils";
+import ImageCacheUtils from "../utils/ImageCacheUtils";
 import PasswordModal from "../components/PasswordModal";
 
 import "yet-another-react-lightbox/styles.css";
@@ -20,20 +21,34 @@ function Gallery() {
   const BATCH_SIZE = 6;
   const BATCH_SLEEP = 400;
 
+  /**
+   * Maximum number of images will be loaded when entering a folder.
+   */
+  const FIRST_LOAD_IMAGES = 12;
+
+  /**
+   * Use proxy for encrypted images.
+   */
+  const USE_PROXY_ENC_IMAGES = true;
+
   const navigate = useNavigate();
   const location = useLocation();
+  const [isFirstVisit, setIsFirstVisit] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [encPassword, setEncPassword] = useState<string | null>(null);
   const [folderPath, setFolderPath] = useState<string>('');
   const [breadcrumbs, setBreadcrumbs] = useState<PathBreadcrumb[]>([]);
   const [listFolderId, setListFolderId] = useState<number>(0);
+  const [filesInFolder, setFilesInFolder] = useState<number>(0);
   const [mapping, setMapping] = useState<PathMap>({});
-  const [sortType, setSortType] = useState<"name" | "uploaded">("name");
-  const [images, setImages] = useState<FileItem[]>([]);
+  const [sortType, setSortType] = useState<SortType>(SortType.name);
+  const [allImages, setAllImages] = useState<FileItem[]>([]);
+  const [onScreenImages, setOnScreenImages] = useState<FileItem[]>([]);
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [askPassword, setAskPassword] = useState(false);
   const [fetchUrl, setFetchUrl] = useState<boolean>(false);
+  const [hasMoreImage, setHasMoreImage] = useState<boolean>(false);
   const [summary, setSummary] = useState<string>('');
   const [index, setIndex] = useState(-1);
   const [failMsg, setFailMsg] = useState<string>('');
@@ -54,6 +69,23 @@ function Gallery() {
     if (!location || !apiKey) return;
     setIsLoading(true);
     setIndex(-1);
+    setHasMoreImage(false);
+
+    // Clear old image cache on first visit
+    if (isFirstVisit) {
+      setIsFirstVisit(false);
+      ImageCacheUtils.deleteExpired();
+    }
+
+    // Load session sorting type
+    const sessionSortType = sessionStorage.getItem('sortType');
+    if (sessionSortType) {
+      if (SortType[SortType.uploaded] === sessionSortType) {
+        setSortType(SortType.uploaded);
+      } else if (SortType[SortType.name] === sessionSortType) {
+        setSortType(SortType.name);
+      }
+    }
 
     // Define variables
     let paths: PathMap = { ...mapping };
@@ -69,7 +101,7 @@ function Gallery() {
       // Define async function to build breadcrumbs by path segments
       const processSegments = async () => {
         let shouldSkip = false, level = 0;
-        console.log('Build breadcrumb list for path: ' + fileLuPath);
+        console.log(`Build breadcrumb list for path: ${fileLuPath}`);
         for (const pathSegment of pathSegments) {
           // Set current path
           currentPath += `/${pathSegment}`;
@@ -145,7 +177,7 @@ function Gallery() {
     const loadGallery = async () => {
       try {
         // Get folder content
-        let paths: PathMap = { ...mapping };
+        let paths: PathMap = { ...mapping }, summaryText:string;
         const listResult: ListFolderResult = await ApiUtils.getFolderContent(apiKey, listFolderId, sortType);
         const subFolders = listResult.folders.map(folder => {
           paths = AppUtils.updatePathMap(paths, folderPath, folder);
@@ -158,11 +190,24 @@ function Gallery() {
         }));
 
         // Filter out non-images files and find the direct link
-        const imageFiles = AppUtils.extractImages(listResult.files);
-        setImages(imageFiles);
+        const folderImages = AppUtils.extractImages(listResult.files);
+        setAllImages(folderImages);
+        setFilesInFolder(listResult.files.length);
+
+        // Set viewable images
+        let viewableImages: FileItem[];
+        if (FIRST_LOAD_IMAGES < folderImages.length) {
+          viewableImages = folderImages.slice(0, FIRST_LOAD_IMAGES);
+          setHasMoreImage(true);
+          summaryText=`${listResult.folders.length} folder(s), first ${FIRST_LOAD_IMAGES} of ${folderImages.length} image(s) showed, total ${listResult.files.length} file(s)`;
+        } else {
+          viewableImages = folderImages;
+          summaryText=`${listResult.folders.length} folder(s), ${folderImages.length} image(s) out of ${listResult.files.length} file(s)`;
+        }
+        setOnScreenImages(viewableImages);
 
         // Ask for decryption password if there are one or more encrypted files
-        if (!encPassword && imageFiles.some(f => f.encrypted)) {
+        if (!encPassword && viewableImages.some(f => f.encrypted)) {
           // Ask for password if there are more than one encrypted images
           setAskPassword(true);
         } else {
@@ -170,7 +215,7 @@ function Gallery() {
           setFetchUrl(true);
         }
         // Show summary and stop loading
-        setSummary(`${listResult.folders.length} folder(s), ${imageFiles.length} image(s) out of ${listResult.files.length} file(s)`);
+        setSummary(summaryText);
       } catch (ex) {
         // Error occurred?
         const errorMsg = AppUtils.getErrorMessage(ex);
@@ -193,23 +238,23 @@ function Gallery() {
     let isCancelled = false;
     const fetchFullUrls = async () => {
       // Exit if images not loaded
-      if (0 === images.length) {
+      if (0 === onScreenImages.length) {
         return true;
       }
 
       // Fetch the full size image URL by batches
-      const newImages = [...images];
+      const newImages = [...onScreenImages];
 
       // Change locked icon to loading
       let hasEncrypted = false;
       newImages.forEach(image => {
-        if (image.encrypted) {
+        if (image.encrypted && !image.src) {
           image.thumbnail = '/loading.png';
           hasEncrypted = true;
         }
       });
       if (hasEncrypted) {
-        setImages([...newImages]);
+        setOnScreenImages([...newImages]);
       }
 
       let shouldClearPassword = false;
@@ -225,82 +270,126 @@ function Gallery() {
         const batch = newImages.slice(b, b + BATCH_SIZE);
 
         // Make sure all items in current batch are finished
+        let shouldSleep = false;
         await Promise.all(batch.map(async (image) => {
-          // Request full size URL
-          const linkResult = await ApiUtils.getFileDirectLink(apiKey!, image.code);
-          // Check current image is encrypted or not
-          if (image.encrypted) {
-            // Check password
-            if (encPassword) {
-              // Download encrypted content
+          // Check if current image's src is defined
+          if (image.src) {
+            // Skip current image if the src is defined
+            return;
+          }
 
-              // FileLu assigned CORS headers on the download server, it is required to use proxy to bypass the security checking
-              let proxiedUrl: string | null = null;
-              if (import.meta.env.PROD) {
-                // Using the vercel rewrite module to bypass CORS problem
-                const tokens = linkResult.url.split('.filelu.live/');
-                if (tokens && 2 === tokens.length) {
-                  // Extract the subdomain of direct download link and build the proxy URL
-                  proxiedUrl = `/proxy/${tokens[0].substring(tokens[0].indexOf('//') + 2)}/${tokens[1]}`;
+          // Handle cached encrypted images
+          let encryptedBytes: Uint8Array | null = null;
+          if (image.encrypted && encPassword) {
+            encryptedBytes = await ImageCacheUtils.get(image.code);
+            if (encryptedBytes) {
+              console.log(`Image cache found: ${image.name}`);
+            }
+          }
+
+          // Check if cached encrypted image loaded
+          if (!encryptedBytes) {
+            // Request full size URL
+            const linkResult = await ApiUtils.getFileDirectLink(apiKey!, image.code);
+            shouldSleep = true;
+
+            // Check current image is encrypted or not
+            if (image.encrypted) {
+              // Check password
+              if (encPassword) {
+                // Download encrypted content
+
+                // FileLu assigned CORS headers on the download server, it is required to use proxy to bypass the security checking
+                let proxiedUrl: string | null = null;
+                if (USE_PROXY_ENC_IMAGES) {
+                  // Using the vercel rewrite module to bypass CORS problem
+                  const tokens = linkResult.url.split('.filelu.live/');
+                  if (tokens && 2 === tokens.length) {
+                    // Extract the subdomain of direct download link and build the proxy URL
+                    proxiedUrl = `/proxy/${tokens[0].substring(tokens[0].indexOf('//') + 2)}/${tokens[1]}`;
+                  } else {
+                    console.warn(`Unknown direct link URL format: ${linkResult.url}`);
+                  }
+                } else {
+                  // Use direct download link
+                  proxiedUrl = linkResult.url;
                 }
-                // Use direct download link
-                // proxiedUrl = linkResult.url;
-              } else {
-                // For development, use vite proxy server
-                proxiedUrl = `/proxy/${linkResult.url.substring(linkResult.url.indexOf('.live/') + 6)}`
-              }
 
-              // Check if proxied URL defined
-              if (proxiedUrl) {
-                try {
+                // Check if proxied URL defined
+                if (proxiedUrl) {
                   // Try to download binary data by using GET request
                   const resp = await fetch(proxiedUrl);
                   if (resp.ok) {
-                    // Response OK! Try to decrypt the image
-                    try {
-                      // Trim the .enc extension, such as `image.jpg.enc` to `image.jpg`
-                      const fileNameWithoutEnc = image.name.substring(0, image.name.length - 4);
-                      const encryptedBytes = await resp.arrayBuffer();
-                      const decryptedBytes = await WCipher.decrypt(encPassword, new Uint8Array(encryptedBytes));
-                      const imageBlob = new Blob([decryptedBytes], { type: AppUtils.getBlobTypeByExtName(fileNameWithoutEnc) });
-
-                      const imageUrl = URL.createObjectURL(imageBlob);
-                      image.title = `${fileNameWithoutEnc} (${AppUtils.toDisplaySize(decryptedBytes.length)} / ${image.uploaded})`;
-                      image.src = imageUrl;
-                      image.thumbnail = imageUrl;
-                    } catch (ex) {
-                      // Failed to decrypt, probably due to wrong password
-                      console.warn('Failed to decrypted content: ' + image.name, ex);
-                      image.thumbnail = '/stop-error.png';
-                      shouldClearPassword = true;
-                    }
+                    // Response OK! Put data to encryptedBytes
+                    encryptedBytes = new Uint8Array(await resp.arrayBuffer());
+                    // Cache the data
+                    ImageCacheUtils.set(image.code, encryptedBytes);
+                    console.log(`Encrypted image downloaded: ${image.name}`);
                   } else {
                     // Fetch failed?
                     image.title = `Failed to download encrypted content: HttpStatus=${resp.status}`;
                     image.thumbnail = '/stop-error.png';
                   }
-                } catch (ex) {
-                  // Download failed, such as CORS error
-                  console.warn('Failed to download encrypted content: ' + image.name, ex);
-                  image.title = `Failed to download encrypted content.`;
+                } else {
+                  // No proxy image URL?
+                  image.title = 'Unsupported FileLu URL: ' + linkResult.url;
                   image.thumbnail = '/stop-error.png';
                 }
               } else {
-                // No proxy image URL?
-                image.title = 'Unsupported FileLu URL: ' + linkResult.url;
+                // No password?
+                image.title = 'Missing decryption passowrd.';
                 image.thumbnail = '/stop-error.png';
               }
             } else {
-              // No password?
-              image.title = 'Missing decryption passowrd.';
-              image.thumbnail = '/stop-error.png';
+              // Not encrypted image, update full URL to target item
+              image.title = `${image.name} (${AppUtils.toDisplaySize(linkResult.size)} / ${image.uploaded})`;
+              image.src = linkResult.url;
             }
-          } else {
-            // Not encrypted image, update full URL to target item
-            image.title = `${image.name} (${AppUtils.toDisplaySize(linkResult.size)} / ${image.uploaded})`;
-            image.src = linkResult.url;
+          }
+
+          // Decrypt image
+          if (encryptedBytes) {
+            try {
+              // Decrypt image data
+              const decryptedBytes = await WCipher.decrypt(encPassword!, encryptedBytes!);
+
+              // Trim the .enc extension, such as `image.jpg.enc` to `image.jpg`
+              const fileNameWithoutEnc = image.name.substring(0, image.name.length - 4);
+              const imageBlob = new Blob([decryptedBytes], { type: AppUtils.getBlobTypeByExtName(fileNameWithoutEnc) });
+              const imageUrl = URL.createObjectURL(imageBlob);
+
+              // Assign image data to image object
+              image.title = `${fileNameWithoutEnc} (${AppUtils.toDisplaySize(decryptedBytes.length)} / ${image.uploaded})`;
+              image.src = imageUrl;
+              image.thumbnail = imageUrl;
+            } catch (ex) {
+              // Failed to decrypt, probably due to wrong password
+              console.warn(`Failed to decrypted content: ${image.name}`, ex);
+              image.thumbnail = '/stop-error.png';
+              shouldClearPassword = true;
+            }
           }
         }));
+
+        // Update image URL back to allImages
+        const newAllImages = [...allImages];
+        for (let m = 0; m < batch.length; m++) {
+          let shouldBreak = false;
+          for (let n = 0; n < newAllImages.length; n++) {
+            if (batch[m].code === newAllImages[n].code) {
+              newAllImages[n].title = batch[m].title;
+              newAllImages[n].thumbnail = batch[m].thumbnail;
+              newAllImages[n].src = batch[m].src;
+              shouldBreak = true;
+              break;
+            }
+          }
+          if (shouldBreak) {
+            break;
+          }
+        }
+        setAllImages(newAllImages);
+        console.log(`Updated batch[${b}] to all images.`);
 
         // Make sure it is working on the same path
         if (isCancelled) {
@@ -309,11 +398,11 @@ function Gallery() {
         }
 
         // Update to the gallery
-        setImages([...newImages]);
+        setOnScreenImages([...newImages]);
         console.log(`Fetch completed on batch[${b}]`);
 
         // Add delay if it is not the last batch
-        if (b + BATCH_SIZE < newImages.length) {
+        if (shouldSleep && b + BATCH_SIZE < newImages.length) {
           // Sleep for 500ms to prevent rate limiting
           await AppUtils.sleep(BATCH_SLEEP);
         }
@@ -335,22 +424,30 @@ function Gallery() {
 
   // Sort images
   useEffect(() => {
-    if (!images.length) return;
+    if (!onScreenImages.length) return;
 
-    const newImages = [...images];
-    if ('uploaded' === sortType) {
+    let newImages = [...allImages];
+    if (SortType.uploaded === sortType) {
       // Sort by time DESC
       newImages.sort(AppUtils.sortByTimeDesc);
     } else {
       // Sort by name ASC
       newImages.sort(AppUtils.sortByNameAsc);
     }
-    setImages(newImages);
+    if (hasMoreImage) {
+      newImages = newImages.slice(0, FIRST_LOAD_IMAGES);
+    }
+    setOnScreenImages(newImages);
+    setFetchUrl(true);
+
+    // Save sorting type to session
+    sessionStorage.setItem('sortType', SortType[sortType]);
+
   }, [sortType]);
 
   const handleImageClick = (imageIndex: number) => {
     // Show lightbox only when image full size URLs loaded
-    if (images && imageIndex < images.length && images[imageIndex].src) {
+    if (onScreenImages && imageIndex < onScreenImages.length && onScreenImages[imageIndex].src) {
       setIndex(imageIndex);
     }
   };
@@ -360,6 +457,21 @@ function Gallery() {
     setEncPassword(password);
     setAskPassword(false);
     setFetchUrl(true);
+  };
+
+  const loadRemainingImages = () => {
+    let newImages = [...allImages];
+    if (SortType.uploaded === sortType) {
+      // Sort by time DESC
+      newImages.sort(AppUtils.sortByTimeDesc);
+    } else {
+      // Sort by name ASC
+      newImages.sort(AppUtils.sortByNameAsc);
+    }
+    setOnScreenImages(newImages);
+    setFetchUrl(true);
+    setHasMoreImage(false);
+    setSummary(`${folders.length} folder(s), ${newImages.length} image(s) out of ${filesInFolder} file(s)`);
   };
 
   return (
@@ -383,12 +495,12 @@ function Gallery() {
             <Spinner size="sm" variant="primary" title="Retrieving full size image URLs..." />
           </> : <>
             <ButtonGroup size="sm">
-              <Button variant="outline-primary" active={sortType === "name"} title="Sort by file name"
-                onClick={() => setSortType("name")}>
+              <Button variant="outline-primary" active={SortType.name === sortType} title="Sort by file name"
+                onClick={() => setSortType(SortType.name)}>
                 <SortAlphaDown />
               </Button>
-              <Button variant="outline-primary" active={sortType === "uploaded"} title="Sort by latest uploaded time"
-                onClick={() => setSortType("uploaded")}>
+              <Button variant="outline-primary" active={SortType.uploaded === sortType} title="Sort by latest uploaded time"
+                onClick={() => setSortType(SortType.uploaded)}>
                 <Clock />
               </Button>
             </ButtonGroup>
@@ -404,7 +516,7 @@ function Gallery() {
       }
 
       {!isLoading && <>
-        {(0 !== folders.length || 0 !== images.length) && <>
+        {(0 !== folders.length || 0 !== onScreenImages.length) && <>
           <div className="row">
             {folders.map(folder => (
               <div key={folder.id} className="col-6 col-md-4 col-lg-3 col-xxl-2 mb-4" title={folder.name}>
@@ -418,8 +530,8 @@ function Gallery() {
                 </Link>
               </div>
             ))}
-            {0 < images.length && <>
-              {images.map((image, imageIndex) => (
+            {0 < onScreenImages.length && <>
+              {onScreenImages.map((image, imageIndex) => (
                 <div key={image.code} className="col-6 col-md-4 col-lg-3 col-xxl-2 mb-4" title={image.title}>
                   <div className="card">
                     <div className="image-container">
@@ -436,14 +548,17 @@ function Gallery() {
                 plugins={[Captions, Zoom]}
                 captions={{ hidden: true, showToggle: true }}
                 index={index}
-                slides={images}
+                slides={onScreenImages}
                 open={index >= 0}
                 close={() => setIndex(-1)}
               />
             </>}
           </div>
+          {hasMoreImage && <button type="button" className="btn btn-primary w-100" disabled={fetchUrl}
+            onClick={() => loadRemainingImages()}>
+            <Images />&nbsp;Load remaining images</button>}
         </>}
-        {0 === folders.length && 0 === images.length && !failMsg && <>
+        {0 === folders.length && 0 === onScreenImages.length && !failMsg && <>
           <Alert variant="warning" className="text-center">
             <ExclamationTriangle />
             &nbsp;No images in this folder.
