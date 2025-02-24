@@ -6,7 +6,7 @@ import { Lightbox } from "yet-another-react-lightbox";
 import { Captions, Zoom } from "yet-another-react-lightbox/plugins";
 import WCipher from "wcipher";
 
-import { FileItem, FolderItem, ListFolderResult, PathMap, PathBreadcrumb } from "../types/models";
+import { FileItem, FolderItem, ListFolderResult, PathMap, PathBreadcrumb, SortType } from "../types/models";
 import ApiUtils from "../utils/ApiUtils";
 import AppUtils from "../utils/AppUtils";
 import ImageCacheUtils from "../utils/ImageCacheUtils";
@@ -41,7 +41,7 @@ function Gallery() {
   const [breadcrumbs, setBreadcrumbs] = useState<PathBreadcrumb[]>([]);
   const [listFolderId, setListFolderId] = useState<number>(0);
   const [mapping, setMapping] = useState<PathMap>({});
-  const [sortType, setSortType] = useState<"name" | "uploaded">("name");
+  const [sortType, setSortType] = useState<SortType>(SortType.name);
   const [allImages, setAllImages] = useState<FileItem[]>([]);
   const [onScreenImages, setOnScreenImages] = useState<FileItem[]>([]);
   const [folders, setFolders] = useState<FolderItem[]>([]);
@@ -78,8 +78,12 @@ function Gallery() {
 
     // Load session sorting type
     const sessionSortType = sessionStorage.getItem('sortType');
-    if (sessionSortType && ('name' === sessionSortType || 'uploaded' === sessionSortType)) {
-      setSortType(sessionSortType);
+    if (sessionSortType) {
+      if (SortType[SortType.uploaded] === sessionSortType) {
+        setSortType(SortType.uploaded);
+      } else if (SortType[SortType.name] === sessionSortType) {
+        setSortType(SortType.name);
+      }
     }
 
     // Define variables
@@ -96,7 +100,7 @@ function Gallery() {
       // Define async function to build breadcrumbs by path segments
       const processSegments = async () => {
         let shouldSkip = false, level = 0;
-        console.log('Build breadcrumb list for path: ' + fileLuPath);
+        console.log(`Build breadcrumb list for path: ${fileLuPath}`);
         for (const pathSegment of pathSegments) {
           // Set current path
           currentPath += `/${pathSegment}`;
@@ -262,7 +266,14 @@ function Gallery() {
         const batch = newImages.slice(b, b + BATCH_SIZE);
 
         // Make sure all items in current batch are finished
+        let shouldSleep = false;
         await Promise.all(batch.map(async (image) => {
+          // Check if current image's src is defined
+          if (image.src) {
+            // Skip current image if the src is defined
+            return;
+          }
+
           // Handle cached encrypted images
           let encryptedBytes: Uint8Array | null = null;
           if (image.encrypted && encPassword) {
@@ -276,6 +287,7 @@ function Gallery() {
           if (!encryptedBytes) {
             // Request full size URL
             const linkResult = await ApiUtils.getFileDirectLink(apiKey!, image.code);
+            shouldSleep = true;
 
             // Check current image is encrypted or not
             if (image.encrypted) {
@@ -308,6 +320,7 @@ function Gallery() {
                     encryptedBytes = new Uint8Array(await resp.arrayBuffer());
                     // Cache the data
                     ImageCacheUtils.set(image.code, encryptedBytes);
+                    console.log(`Encrypted image downloaded: ${image.name}`);
                   } else {
                     // Fetch failed?
                     image.title = `Failed to download encrypted content: HttpStatus=${resp.status}`;
@@ -354,6 +367,26 @@ function Gallery() {
           }
         }));
 
+        // Update image URL back to allImages
+        const newAllImages = [...allImages];
+        for (let m = 0; m < batch.length; m++) {
+          let shouldBreak = false;
+          for (let n = 0; n < newAllImages.length; n++) {
+            if (batch[m].code === newAllImages[n].code) {
+              newAllImages[n].title = batch[m].title;
+              newAllImages[n].thumbnail = batch[m].thumbnail;
+              newAllImages[n].src = batch[m].src;
+              shouldBreak = true;
+              break;
+            }
+          }
+          if (shouldBreak) {
+            break;
+          }
+        }
+        setAllImages(newAllImages);
+        console.log(`Updated batch[${b}] to all images.`);
+
         // Make sure it is working on the same path
         if (isCancelled) {
           console.warn('Working folder path changed...');
@@ -365,7 +398,7 @@ function Gallery() {
         console.log(`Fetch completed on batch[${b}]`);
 
         // Add delay if it is not the last batch
-        if (b + BATCH_SIZE < newImages.length) {
+        if (shouldSleep && b + BATCH_SIZE < newImages.length) {
           // Sleep for 500ms to prevent rate limiting
           await AppUtils.sleep(BATCH_SLEEP);
         }
@@ -390,7 +423,7 @@ function Gallery() {
     if (!onScreenImages.length) return;
 
     let newImages = [...allImages];
-    if ('uploaded' === sortType) {
+    if (SortType.uploaded === sortType) {
       // Sort by time DESC
       newImages.sort(AppUtils.sortByTimeDesc);
     } else {
@@ -404,7 +437,7 @@ function Gallery() {
     setFetchUrl(true);
 
     // Save sorting type to session
-    sessionStorage.setItem('sortType', sortType);
+    sessionStorage.setItem('sortType', SortType[sortType]);
 
   }, [sortType]);
 
@@ -424,7 +457,7 @@ function Gallery() {
 
   const loadRemainingImages = () => {
     let newImages = [...allImages];
-    if ('uploaded' === sortType) {
+    if (SortType.uploaded === sortType) {
       // Sort by time DESC
       newImages.sort(AppUtils.sortByTimeDesc);
     } else {
@@ -457,12 +490,12 @@ function Gallery() {
             <Spinner size="sm" variant="primary" title="Retrieving full size image URLs..." />
           </> : <>
             <ButtonGroup size="sm">
-              <Button variant="outline-primary" active={sortType === "name"} title="Sort by file name"
-                onClick={() => setSortType("name")}>
+              <Button variant="outline-primary" active={SortType.name === sortType} title="Sort by file name"
+                onClick={() => setSortType(SortType.name)}>
                 <SortAlphaDown />
               </Button>
-              <Button variant="outline-primary" active={sortType === "uploaded"} title="Sort by latest uploaded time"
-                onClick={() => setSortType("uploaded")}>
+              <Button variant="outline-primary" active={SortType.uploaded === sortType} title="Sort by latest uploaded time"
+                onClick={() => setSortType(SortType.uploaded)}>
                 <Clock />
               </Button>
             </ButtonGroup>
@@ -516,7 +549,8 @@ function Gallery() {
               />
             </>}
           </div>
-          {hasMoreImage && <button type="button" className="btn btn-primary w-100" onClick={() => loadRemainingImages()}>
+          {hasMoreImage && <button type="button" className="btn btn-primary w-100" disabled={fetchUrl}
+            onClick={() => loadRemainingImages()}>
             <Images />&nbsp;Load remaining images</button>}
         </>}
         {0 === folders.length && 0 === onScreenImages.length && !failMsg && <>

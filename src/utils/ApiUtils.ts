@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
-import { FileItem, FolderItem, FileDirectLinkResult, ListFolderResult } from "../types/models";
+import { FileItem, FolderItem, FileDirectLinkResult, ListFolderResult, SortType } from "../types/models";
 import AppUtils from "./AppUtils";
 
 // Load plugins
@@ -69,7 +69,7 @@ export default class ApiUtils {
    * @param folderId Target folder's ID, 0 is the root folder.
    * @returns The files and sub-folders of target folder.
    */
-  static async getFolderContent(apiKey: string, folderId: number, sortType: string): Promise<ListFolderResult> {
+  static async getFolderContent(apiKey: string, folderId: number, sortType: SortType): Promise<ListFolderResult> {
     let error: string | null = null;
     try {
       // Get folder list
@@ -105,7 +105,7 @@ export default class ApiUtils {
             }
             return fileItem;
           });
-          if ('uploaded' === sortType) {
+          if (SortType.uploaded === sortType) {
             files.sort(AppUtils.sortByTimeDesc);
           } else {
             files.sort(AppUtils.sortByNameAsc);

@@ -84,3 +84,8 @@ export interface ListFolderResult {
   files: FileItem[];
   folders: FolderItem[];
 }
+
+export enum SortType {
+  'name',
+  'uploaded'
+}
