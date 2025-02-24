@@ -26,8 +26,14 @@ function Gallery() {
    */
   const FIRST_LOAD_IMAGES = 12;
 
+  /**
+   * Use proxy for encrypted images.
+   */
+  const USE_PROXY_ENC_IMAGES = true;
+
   const navigate = useNavigate();
   const location = useLocation();
+  const [isFirstVisit, setIsFirstVisit] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [encPassword, setEncPassword] = useState<string | null>(null);
@@ -64,8 +70,17 @@ function Gallery() {
     setIndex(-1);
     setHasMoreImage(false);
 
-    // Clear old image cache
-    ImageCacheUtils.deleteOldCaches();
+    // Clear old image cache on first visit
+    if (isFirstVisit) {
+      setIsFirstVisit(false);
+      ImageCacheUtils.deleteExpired();
+    }
+
+    // Load session sorting type
+    const sessionSortType = sessionStorage.getItem('sortType');
+    if (sessionSortType && ('name' === sessionSortType || 'uploaded' === sessionSortType)) {
+      setSortType(sessionSortType);
+    }
 
     // Define variables
     let paths: PathMap = { ...mapping };
@@ -248,58 +263,54 @@ function Gallery() {
 
         // Make sure all items in current batch are finished
         await Promise.all(batch.map(async (image) => {
-          // Request full size URL
-          const linkResult = await ApiUtils.getFileDirectLink(apiKey!, image.code);
-          // Check current image is encrypted or not
-          if (image.encrypted) {
-            // Check password
-            if (encPassword) {
-              // Check file cache
-              let encryptedBytes: Uint8Array | null = await ImageCacheUtils.getImageCache(image.code);
-              if (!encryptedBytes) {
-                // Image cache not found, download encrypted content
+          // Handle cached encrypted images
+          let encryptedBytes: Uint8Array | null = null;
+          if (image.encrypted && encPassword) {
+            encryptedBytes = await ImageCacheUtils.get(image.code);
+            if (encryptedBytes) {
+              console.log(`Image cache found: ${image.name}`);
+            }
+          }
+
+          // Check if cached encrypted image loaded
+          if (!encryptedBytes) {
+            // Request full size URL
+            const linkResult = await ApiUtils.getFileDirectLink(apiKey!, image.code);
+
+            // Check current image is encrypted or not
+            if (image.encrypted) {
+              // Check password
+              if (encPassword) {
+                // Download encrypted content
 
                 // FileLu assigned CORS headers on the download server, it is required to use proxy to bypass the security checking
                 let proxiedUrl: string | null = null;
-                if (import.meta.env.PROD) {
+                if (USE_PROXY_ENC_IMAGES) {
                   // Using the vercel rewrite module to bypass CORS problem
                   const tokens = linkResult.url.split('.filelu.live/');
                   if (tokens && 2 === tokens.length) {
                     // Extract the subdomain of direct download link and build the proxy URL
                     proxiedUrl = `/proxy/${tokens[0].substring(tokens[0].indexOf('//') + 2)}/${tokens[1]}`;
+                  } else {
+                    console.warn(`Unknown direct link URL format: ${linkResult.url}`);
                   }
-                  // Use direct download link
-                  // proxiedUrl = linkResult.url;
                 } else {
-                  // For development, use vite proxy server
-                  proxiedUrl = `/proxy/${linkResult.url.substring(linkResult.url.indexOf('.live/') + 6)}`
+                  // Use direct download link
+                  proxiedUrl = linkResult.url;
                 }
 
                 // Check if proxied URL defined
                 if (proxiedUrl) {
-                  try {
-                    // Try to download binary data by using GET request
-                    const resp = await fetch(proxiedUrl);
-                    if (resp.ok) {
-                      try {
-                        // Response OK! Put data to encryptedBytes
-                        encryptedBytes = new Uint8Array(await resp.arrayBuffer());
-                        // Cache the data
-                        ImageCacheUtils.saveImageCache(image.code, encryptedBytes);
-                      } catch (ex) {
-                        // Failed to turn downloaded data to byte array
-                        console.warn('Failed to turn download data to encrypted bytes: ' + image.name, ex);
-                        image.thumbnail = '/stop-error.png';
-                      }
-                    } else {
-                      // Fetch failed?
-                      image.title = `Failed to download encrypted content: HttpStatus=${resp.status}`;
-                      image.thumbnail = '/stop-error.png';
-                    }
-                  } catch (ex) {
-                    // Download failed, such as CORS error
-                    console.warn('Failed to download encrypted content: ' + image.name, ex);
-                    image.title = `Failed to download encrypted content.`;
+                  // Try to download binary data by using GET request
+                  const resp = await fetch(proxiedUrl);
+                  if (resp.ok) {
+                    // Response OK! Put data to encryptedBytes
+                    encryptedBytes = new Uint8Array(await resp.arrayBuffer());
+                    // Cache the data
+                    ImageCacheUtils.set(image.code, encryptedBytes);
+                  } else {
+                    // Fetch failed?
+                    image.title = `Failed to download encrypted content: HttpStatus=${resp.status}`;
                     image.thumbnail = '/stop-error.png';
                   }
                 } else {
@@ -307,38 +318,39 @@ function Gallery() {
                   image.title = 'Unsupported FileLu URL: ' + linkResult.url;
                   image.thumbnail = '/stop-error.png';
                 }
-              }
-              // Check if encrypted image data loaded
-              if (encryptedBytes) {
-                try {
-                  // Decrypt image data
-                  const decryptedBytes = await WCipher.decrypt(encPassword, encryptedBytes);
-
-                  // Trim the .enc extension, such as `image.jpg.enc` to `image.jpg`
-                  const fileNameWithoutEnc = image.name.substring(0, image.name.length - 4);
-                  const imageBlob = new Blob([decryptedBytes], { type: AppUtils.getBlobTypeByExtName(fileNameWithoutEnc) });
-                  const imageUrl = URL.createObjectURL(imageBlob);
-
-                  // Assign image data to image object
-                  image.title = `${fileNameWithoutEnc} (${AppUtils.toDisplaySize(decryptedBytes.length)} / ${image.uploaded})`;
-                  image.src = imageUrl;
-                  image.thumbnail = imageUrl;
-                } catch (ex) {
-                  // Failed to decrypt, probably due to wrong password
-                  console.warn('Failed to decrypted content: ' + image.name, ex);
-                  image.thumbnail = '/stop-error.png';
-                  shouldClearPassword = true;
-                }
+              } else {
+                // No password?
+                image.title = 'Missing decryption passowrd.';
+                image.thumbnail = '/stop-error.png';
               }
             } else {
-              // No password?
-              image.title = 'Missing decryption passowrd.';
-              image.thumbnail = '/stop-error.png';
+              // Not encrypted image, update full URL to target item
+              image.title = `${image.name} (${AppUtils.toDisplaySize(linkResult.size)} / ${image.uploaded})`;
+              image.src = linkResult.url;
             }
-          } else {
-            // Not encrypted image, update full URL to target item
-            image.title = `${image.name} (${AppUtils.toDisplaySize(linkResult.size)} / ${image.uploaded})`;
-            image.src = linkResult.url;
+          }
+
+          // Decrypt image
+          if (encryptedBytes) {
+            try {
+              // Decrypt image data
+              const decryptedBytes = await WCipher.decrypt(encPassword!, encryptedBytes!);
+
+              // Trim the .enc extension, such as `image.jpg.enc` to `image.jpg`
+              const fileNameWithoutEnc = image.name.substring(0, image.name.length - 4);
+              const imageBlob = new Blob([decryptedBytes], { type: AppUtils.getBlobTypeByExtName(fileNameWithoutEnc) });
+              const imageUrl = URL.createObjectURL(imageBlob);
+
+              // Assign image data to image object
+              image.title = `${fileNameWithoutEnc} (${AppUtils.toDisplaySize(decryptedBytes.length)} / ${image.uploaded})`;
+              image.src = imageUrl;
+              image.thumbnail = imageUrl;
+            } catch (ex) {
+              // Failed to decrypt, probably due to wrong password
+              console.warn(`Failed to decrypted content: ${image.name}`, ex);
+              image.thumbnail = '/stop-error.png';
+              shouldClearPassword = true;
+            }
           }
         }));
 
@@ -390,6 +402,10 @@ function Gallery() {
     }
     setOnScreenImages(newImages);
     setFetchUrl(true);
+
+    // Save sorting type to session
+    sessionStorage.setItem('sortType', sortType);
+
   }, [sortType]);
 
   const handleImageClick = (imageIndex: number) => {

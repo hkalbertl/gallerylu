@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Check2, DashCircle, Floppy, Trash } from "react-bootstrap-icons";
+import { Check2, DashCircle, Floppy, Stars, Trash } from "react-bootstrap-icons";
 import ApiUtils from "../utils/ApiUtils";
 import AppUtils from "../utils/AppUtils";
+import ImageCacheUtils from "../utils/ImageCacheUtils";
 
 
 function Config() {
@@ -16,17 +17,6 @@ function Config() {
     if (rawApiKey) {
       setApiKey(rawApiKey);
     }
-    /*
-    const encryptedData = localStorage.getItem("apiKey");
-    AppUtils.decryptData(encryptedData).then(decryptedKey => {
-      if (decryptedKey) {
-        // Set API key when data decrypted
-        setApiKey(decryptedKey);
-      }
-    }).catch(err => {
-      console.warn('Failed to load saved data: ' + AppUtils.getErrorMessage(err));
-    });
-    */
   }, []);
 
   // Handle form submission
@@ -49,29 +39,29 @@ function Config() {
       // Save to localStorage
       localStorage.setItem("apiKey", apiKey);
 
-      /*
-      // Encrypt the API key and save to localStorage
-      const encrypted = await AppUtils.encryptData(apiKey);
-      localStorage.setItem("apiKey", encrypted);
-      */
-
       // Clear error and show successful alert
       setError("");
       setIsSuccess(true);
     } catch (ex) {
       // Error occurred? Most likely the API is not correct
       const errorMsg = AppUtils.getErrorMessage(ex);
-      console.error('Error occurred?', errorMsg);
+      console.error(`Error occurred? ${errorMsg}`);
       setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleClearCache = async () => {
+    if (confirm('Are you sure to clear all image caches?')) {
+      await ImageCacheUtils.clearAll();
+    }
+  };
+
   const handleReset = () => {
     if (confirm('Are you sure to reset everything?')) {
-      localStorage.clear(); // Clear all stored data
-      window.location.reload(); // Reload the page to apply changes
+      localStorage.clear();
+      window.location.reload();
     }
   };
 
@@ -108,7 +98,10 @@ function Config() {
                 {isLoading && <span className="spinner-border spinner-border-sm" aria-hidden="true"></span>}
                 &nbsp;Save
               </button>
-              <button type="button" className="btn btn-outline-danger ms-auto" onClick={handleReset}>
+              <button type="button" className="btn btn-outline-warning ms-auto" onClick={handleClearCache}>
+                <Stars />&nbsp;Clear Cache
+              </button>
+              <button type="button" className="btn btn-outline-danger ms-1" onClick={handleReset}>
                 <Trash />
                 &nbsp;Reset
               </button>

@@ -1,5 +1,8 @@
-import { openDB } from "idb";
+import { openDB, deleteDB } from "idb";
 
+/**
+ * The utility class for image caches.
+ */
 export default class ImageCacheUtils {
 
   /**
@@ -7,52 +10,59 @@ export default class ImageCacheUtils {
    */
   private static CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
+  private static DATABASE_NAME = 'GalleryCache';
+
+  private static STORE_NAME = 'images';
+
   private static async dbPromise() {
-    return openDB("GalleryCache", 1, {
+    return openDB(ImageCacheUtils.DATABASE_NAME, 1, {
       upgrade(db) {
-        if (!db.objectStoreNames.contains("images")) {
-          db.createObjectStore("images", { keyPath: "id" });
+        if (!db.objectStoreNames.contains(ImageCacheUtils.STORE_NAME)) {
+          db.createObjectStore(ImageCacheUtils.STORE_NAME, { keyPath: 'id' });
         }
       },
     })
   };
 
-  static async saveImageCache(id: string, encryptedBytes: Uint8Array) {
+  static async set(id: string, encryptedBytes: Uint8Array) {
     const db = await ImageCacheUtils.dbPromise();
-    await db.put("images", { id, data: encryptedBytes, timestamp: Date.now() });
+    await db.put(ImageCacheUtils.STORE_NAME, { id, data: encryptedBytes, timestamp: Date.now() });
   };
 
-  static async getImageCache(id: string): Promise<Uint8Array | null> {
+  static async get(id: string): Promise<Uint8Array | null> {
     const db = await ImageCacheUtils.dbPromise();
-    const entry = await db.get("images", id);
+    const entry = await db.get(ImageCacheUtils.STORE_NAME, id);
     return entry ? entry.data : null;
   };
 
-  static async deleteOldCaches() {
+  static async deleteExpired() {
     try {
-      const db = await openDB('GalleryCache', 1);
-      const tx = db.transaction('images', 'readwrite');
-      const store = tx.objectStore('images');
-      const allKeys = await store.getAllKeys();
+      const db = await ImageCacheUtils.dbPromise();
+      const allKeys = await db.getAllKeys(ImageCacheUtils.STORE_NAME);
 
       const now = Date.now();
-      const oneWeekAgo = now - ImageCacheUtils.CACHE_MAX_AGE;
+      const expireLimit = now - ImageCacheUtils.CACHE_MAX_AGE;
 
       let deleted = 0;
       for (const key of allKeys) {
-        const record = await store.get(key);
-        if (record && record.timestamp < oneWeekAgo) {
-          await store.delete(key);
+        const record = await db.get(ImageCacheUtils.STORE_NAME, key);
+        if (record && record.timestamp < expireLimit) {
+          await db.delete(ImageCacheUtils.STORE_NAME, key);
           deleted++;
         }
       }
 
-      await tx.done;
       if (0 < deleted) {
         console.log(`${deleted} image(s) cache cleaned.`);
       }
-    } catch {
-      console.warn('Failed to cleanup image cache, may be image cache is not used.');
+    } catch (ex) {
+      console.warn('Failed to cleanup image cache, may be image cache is not used.', ex);
     }
+  }
+
+  static async clearAll() {
+    // const db = await ImageCacheUtils.dbPromise();
+    // await db.clear(ImageCacheUtils.STORE_NAME);
+    await deleteDB(ImageCacheUtils.DATABASE_NAME);
   }
 }
