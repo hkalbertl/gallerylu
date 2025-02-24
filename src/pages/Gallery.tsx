@@ -40,6 +40,7 @@ function Gallery() {
   const [folderPath, setFolderPath] = useState<string>('');
   const [breadcrumbs, setBreadcrumbs] = useState<PathBreadcrumb[]>([]);
   const [listFolderId, setListFolderId] = useState<number>(0);
+  const [filesInFolder, setFilesInFolder] = useState<number>(0);
   const [mapping, setMapping] = useState<PathMap>({});
   const [sortType, setSortType] = useState<SortType>(SortType.name);
   const [allImages, setAllImages] = useState<FileItem[]>([]);
@@ -176,7 +177,7 @@ function Gallery() {
     const loadGallery = async () => {
       try {
         // Get folder content
-        let paths: PathMap = { ...mapping };
+        let paths: PathMap = { ...mapping }, summaryText:string;
         const listResult: ListFolderResult = await ApiUtils.getFolderContent(apiKey, listFolderId, sortType);
         const subFolders = listResult.folders.map(folder => {
           paths = AppUtils.updatePathMap(paths, folderPath, folder);
@@ -191,14 +192,17 @@ function Gallery() {
         // Filter out non-images files and find the direct link
         const folderImages = AppUtils.extractImages(listResult.files);
         setAllImages(folderImages);
+        setFilesInFolder(listResult.files.length);
 
         // Set viewable images
         let viewableImages: FileItem[];
         if (FIRST_LOAD_IMAGES < folderImages.length) {
           viewableImages = folderImages.slice(0, FIRST_LOAD_IMAGES);
           setHasMoreImage(true);
+          summaryText=`${listResult.folders.length} folder(s), first ${FIRST_LOAD_IMAGES} of ${folderImages.length} image(s) showed, total ${listResult.files.length} file(s)`;
         } else {
           viewableImages = folderImages;
+          summaryText=`${listResult.folders.length} folder(s), ${folderImages.length} image(s) out of ${listResult.files.length} file(s)`;
         }
         setOnScreenImages(viewableImages);
 
@@ -211,7 +215,7 @@ function Gallery() {
           setFetchUrl(true);
         }
         // Show summary and stop loading
-        setSummary(`${listResult.folders.length} folder(s), ${viewableImages.length} image(s) out of ${listResult.files.length} file(s)`);
+        setSummary(summaryText);
       } catch (ex) {
         // Error occurred?
         const errorMsg = AppUtils.getErrorMessage(ex);
@@ -467,6 +471,7 @@ function Gallery() {
     setOnScreenImages(newImages);
     setFetchUrl(true);
     setHasMoreImage(false);
+    setSummary(`${folders.length} folder(s), ${newImages.length} image(s) out of ${filesInFolder} file(s)`);
   };
 
   return (
