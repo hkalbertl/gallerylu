@@ -244,7 +244,7 @@ function Gallery() {
       // Change locked icon to loading
       let hasEncrypted = false;
       newImages.forEach(image => {
-        if (image.encrypted) {
+        if (image.encrypted && !image.src) {
           image.thumbnail = '/loading.png';
           hasEncrypted = true;
         }
