@@ -141,6 +141,12 @@ export default class ApiUtils {
     throw error;
   }
 
+  /**
+   * Get the file direct download link.
+   * @param apiKey FileLu API key.
+   * @param fileCode Target file code.
+   * @returns Direct download link result.
+   */
   static async getFileDirectLink(apiKey: string, fileCode: string): Promise<FileDirectLinkResult> {
     let error: string | null = null;
     try {
@@ -159,6 +165,38 @@ export default class ApiUtils {
         } else if (400 === json.status) {
           // Invalid key
           error = `Invalid API key (status: ${json.status}): ${json.msg}`;
+        } else {
+          // Unknown status
+          error = `Unknown API response (status: ${json.status}): ${json.msg}`;
+        }
+      } else {
+        // Network error?
+        const msg = await resp.text();
+        error = `Network error: ${msg}`;
+      }
+    } catch (ex) {
+      // Unknown error?
+      error = `Unknown error: ${ex}`;
+    }
+    throw error;
+  }
+
+  /**
+   * Delete a file by file code.
+   * @param apiKey FileLu API key.
+   * @param fileCode Target file code.
+   */
+  static async deleteFile(apiKey: string, fileCode: string) :Promise<boolean> {
+    let error: string | null = null;
+    try {
+      // Delete file
+      const resp = await fetch(`${this.API_BASE_URL}/file/remove?file_code=${fileCode}&remove=1&key=${apiKey}`);
+      if (resp.ok) {
+        // HTTP OK! Parse as JSON
+        const json = await resp.json();
+        if (200 === json.status) {
+          // File deleted
+          return true;
         } else {
           // Unknown status
           error = `Unknown API response (status: ${json.status}): ${json.msg}`;

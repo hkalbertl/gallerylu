@@ -12,16 +12,18 @@ a.card {
 
 .image-container {
   width: 100%;
-  aspect-ratio: 1 / 1; /* Makes it a perfect square */
+  aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .image-container img {
-  max-width: 92%; /* Leaves some padding inside the square */
+  /* Leaves some padding inside the square */
+  max-width: 92%;
   max-height: 92%;
-  object-fit: contain; /* Keep aspect ratio without distortion */
+  /* Keep aspect ratio without distortion */
+  object-fit: contain;
 }
 
 .folder-icon {
@@ -36,8 +38,22 @@ a.card {
 }
 
 .card-text {
-  white-space: nowrap;  /* Prevent text from wrapping */
-  overflow: hidden;     /* Hide overflowing text */
-  text-overflow: ellipsis;  /* Show "..." for long text */
-  width: 100%;  /* Ensure it takes full width */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+div.card .card-hover-menu {
+  position: absolute;
+  top: .4rem;
+  right: .4rem;
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+div.card:hover .card-hover-menu {
+  opacity: 1;
 }

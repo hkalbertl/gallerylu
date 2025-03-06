@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Alert, Breadcrumb, Button, ButtonGroup, Spinner } from "react-bootstrap";
-import { Folder as FolderIcon, Images, ExclamationTriangle, DashCircle, SortAlphaDown, Clock } from "react-bootstrap-icons";
+import { Folder as FolderIcon, Images, ExclamationTriangle, DashCircle, SortAlphaDown, Clock, Trash } from "react-bootstrap-icons";
 import { Lightbox } from "yet-another-react-lightbox";
 import { Captions, Zoom } from "yet-another-react-lightbox/plugins";
 import WCipher from "wcipher";
@@ -177,7 +177,7 @@ function Gallery() {
     const loadGallery = async () => {
       try {
         // Get folder content
-        let paths: PathMap = { ...mapping }, summaryText:string;
+        let paths: PathMap = { ...mapping }, summaryText: string;
         const listResult: ListFolderResult = await ApiUtils.getFolderContent(apiKey, listFolderId, sortType);
         const subFolders = listResult.folders.map(folder => {
           paths = AppUtils.updatePathMap(paths, folderPath, folder);
@@ -199,10 +199,10 @@ function Gallery() {
         if (FIRST_LOAD_IMAGES < folderImages.length) {
           viewableImages = folderImages.slice(0, FIRST_LOAD_IMAGES);
           setHasMoreImage(true);
-          summaryText=`${listResult.folders.length} folder(s), first ${FIRST_LOAD_IMAGES} of ${folderImages.length} image(s) showed, total ${listResult.files.length} file(s)`;
+          summaryText = `${listResult.folders.length} folder(s), first ${FIRST_LOAD_IMAGES} of ${folderImages.length} image(s) showed, total ${listResult.files.length} file(s)`;
         } else {
           viewableImages = folderImages;
-          summaryText=`${listResult.folders.length} folder(s), ${folderImages.length} image(s) out of ${listResult.files.length} file(s)`;
+          summaryText = `${listResult.folders.length} folder(s), ${folderImages.length} image(s) out of ${listResult.files.length} file(s)`;
         }
         setOnScreenImages(viewableImages);
 
@@ -474,6 +474,27 @@ function Gallery() {
     setSummary(`${folders.length} folder(s), ${newImages.length} image(s) out of ${filesInFolder} file(s)`);
   };
 
+  const handleImageDelete = async (imageIndex: number) => {
+    // Confirm deletion
+    const targetImage = onScreenImages[imageIndex];
+    if (!confirm(`Are you sure to delete this image? ${targetImage.name}`)) {
+      return;
+    }
+
+    try {
+      const fileCode = targetImage.code;
+      ApiUtils.deleteFile(apiKey!, fileCode);
+      // Refresh gallery
+      const newOnScreenImages = onScreenImages.filter(img => img.code !== fileCode);
+      setOnScreenImages(newOnScreenImages);
+      const newAllImages = allImages.filter(img => img.code !== fileCode);
+      setAllImages(newAllImages);
+    } catch (ex) {
+      const errorMsg = AppUtils.getErrorMessage(ex);
+      console.error(`Failed to delete image[${targetImage.code}]: ${errorMsg}`);
+    }
+  };
+
   return (
     <>
       <div className="d-flex align-items-center">
@@ -540,6 +561,11 @@ function Gallery() {
                     </div>
                     <div className="card-body">
                       <p className="card-text">{image.name}</p>
+                    </div>
+                    <div className="card-hover-menu">
+                      <Button variant="danger" size="sm" title="Delete" onClick={() => handleImageDelete(imageIndex)}>
+                        <Trash />
+                      </Button>
                     </div>
                   </div>
                 </div>
