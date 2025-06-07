@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/proxy/:subdomain/:path*",
-      "destination": "https://:subdomain.filelu.live/:path*"
+      "destination": "https://:subdomain.cdnfinal.space/:path*"
     },
     {
       "source": "/config",

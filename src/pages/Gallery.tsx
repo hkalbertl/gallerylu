@@ -303,7 +303,7 @@ function Gallery() {
                 let proxiedUrl: string | null = null;
                 if (USE_PROXY_ENC_IMAGES) {
                   // Using the vercel rewrite module to bypass CORS problem
-                  const tokens = linkResult.url.split('.filelu.live/');
+                  const tokens = linkResult.url.split('.cdnfinal.space/');
                   if (tokens && 2 === tokens.length) {
                     // Extract the subdomain of direct download link and build the proxy URL
                     proxiedUrl = `/proxy/${tokens[0].substring(tokens[0].indexOf('//') + 2)}/${tokens[1]}`;
