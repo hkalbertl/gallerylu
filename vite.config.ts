@@ -20,8 +20,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     open: '/',
     proxy: mode === 'development' ? {
-      '/proxy/3434': {
-        target: 'https://3434.filelu.live/',
+      '/proxy/2424': {
+        target: 'https://2424.cdnfinal.space/',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/proxy\/[0-9]+/, ''),
+      },
+      '/proxy/6666': {
+        target: 'https://6666.cdnfinal.space/',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/proxy\/[0-9]+/, ''),
       },
