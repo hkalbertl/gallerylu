@@ -351,7 +351,8 @@ function Gallery() {
           if (encryptedBytes) {
             try {
               // Decrypt image data
-              const decryptedBytes = await WCipher.decrypt(encPassword!, encryptedBytes!);
+              const rawDecryptedBytes = await WCipher.decrypt(encPassword!, encryptedBytes!),
+                decryptedBytes = rawDecryptedBytes as Uint8Array<ArrayBuffer>;
 
               // Trim the .enc extension, such as `image.jpg.enc` to `image.jpg`
               const fileNameWithoutEnc = image.name.substring(0, image.name.length - 4);
