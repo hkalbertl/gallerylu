@@ -10,7 +10,7 @@ import ImageCacheUtils from "../utils/ImageCacheUtils";
 import S3Utils from "../utils/S3Utils";
 
 function Config() {
-  const [connectionMode, setConnectionMode] = useState<ConnectionMode>("s3");
+  const [connectionMode, setConnectionMode] = useState<ConnectionMode>(ConnectionMode.s3);
   const [apiKey, setApiKey] = useState("");
   const [s3Id, setS3Id] = useState("");
   const [s3Secret, setS3Secret] = useState("");
@@ -28,7 +28,7 @@ function Config() {
 
     if (!savedConfig.s3Id && !savedConfig.s3Secret && savedConfig.apiKey) {
       // Set FileLu API active if S3 is not used
-      setConnectionMode("api");
+      setConnectionMode(ConnectionMode.api);
     }
   }, []);
 
@@ -46,7 +46,7 @@ function Config() {
         s3Secret: '',
         apiKey: '',
       };
-      if ("s3" === connectionMode) {
+      if (ConnectionMode.s3 === connectionMode) {
         // Validate S3 config
         const buckets = await S3Utils.listBuckets(s3Id, s3Secret);
         if (!buckets || !buckets.length) {
@@ -57,7 +57,7 @@ function Config() {
         // S3 config is valid
         newConfig.s3Id = s3Id;
         newConfig.s3Secret = s3Secret;
-      } else if ("api" === connectionMode) {
+      } else {
         // Check API key defined
         if (!apiKey.trim()) {
           setError("API Key cannot be empty!");
@@ -68,9 +68,6 @@ function Config() {
 
         // API key is valid
         newConfig.apiKey = apiKey;
-      } else {
-        // Should not get here
-        return;
       }
 
       // Save to localStorage
@@ -114,10 +111,10 @@ function Config() {
               If you are new to FileLu, consider registering using the author's <a href="https://filelu.com/5155514948.html" target="_blank">referral link</a>.
             </p>
 
-            <Accordion className="mb-3" defaultActiveKey="s3" activeKey={connectionMode}>
-              <Accordion.Item eventKey="s3">
-                <Accordion.Header onClick={() => { setConnectionMode("s3") }}>
-                  {"s3" === connectionMode ? <Check2Square /> : <Square />}
+            <Accordion className="mb-3" defaultActiveKey={ConnectionMode.s3} activeKey={connectionMode}>
+              <Accordion.Item eventKey={ConnectionMode.s3}>
+                <Accordion.Header onClick={() => { setConnectionMode(ConnectionMode.s3) }}>
+                  {ConnectionMode.s3 === connectionMode ? <Check2Square /> : <Square />}
                   &nbsp;Using FileLu S5
                   <span className="badge text-bg-info ms-1">AWS S3 compatible provider</span>
                 </Accordion.Header>
@@ -135,9 +132,9 @@ function Config() {
                   </div>
                 </Accordion.Body>
               </Accordion.Item>
-              <Accordion.Item eventKey="api">
-                <Accordion.Header onClick={() => { setConnectionMode("api") }}>
-                  {"api" === connectionMode ? <Check2Square /> : <Square />}
+              <Accordion.Item eventKey={ConnectionMode.api}>
+                <Accordion.Header onClick={() => { setConnectionMode(ConnectionMode.api) }}>
+                  {ConnectionMode.api === connectionMode ? <Check2Square /> : <Square />}
                   &nbsp;Using FileLu Native API
                 </Accordion.Header>
                 <Accordion.Body>

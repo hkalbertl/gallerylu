@@ -35,12 +35,13 @@ function Gallery() {
 
   const LOADING_SPINNER_URL = '/loading.png';
   const ENCRYPTED_LOCK_URL = '/locked.png';
+  const STOP_ERROR_URL = '/stop-error.png';
 
   const navigate = useNavigate();
   const location = useLocation();
   const [isFirstVisit, setIsFirstVisit] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [connectionMode, setConnectionMode] = useState<ConnectionMode>("s3");
+  const [connectionMode, setConnectionMode] = useState<ConnectionMode>(ConnectionMode.s3);
   const [glConfig, setGlConfig] = useState<GLConfig | null>(null);
   const [encPassword, setEncPassword] = useState<string | null>(null);
   const [folderPath, setFolderPath] = useState<string>('');
@@ -51,17 +52,17 @@ function Gallery() {
   /**
    * The folder path / ID mapping for native API.
    */
-  const [mapping, setMapping] = useState<PathMap>({});
+  const [pathMapping, setPathMapping] = useState<PathMap>({});
 
   const [sortType, setSortType] = useState<SortType>(SortType.name);
   const [allImages, setAllImages] = useState<FileItem[]>([]);
   const [onScreenImages, setOnScreenImages] = useState<FileItem[]>([]);
-  const [folders, setFolders] = useState<FolderItem[]>([]);
+  const [folderItems, setFolderItems] = useState<FolderItem[]>([]);
   const [askPassword, setAskPassword] = useState(false);
   const [fetchContent, setFetchContent] = useState<boolean>(false);
   const [hasMoreImage, setHasMoreImage] = useState<boolean>(false);
-  const [summary, setSummary] = useState<string>('');
-  const [index, setIndex] = useState(-1);
+  const [summaryText, setSummaryText] = useState<string>('');
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [failMsg, setFailMsg] = useState<string>('');
 
   // Check API key exists, or redirect to config page when not found
@@ -74,7 +75,7 @@ function Gallery() {
       // Config valid
       setGlConfig(savedConfig);
       if (!savedConfig.s3Id && !savedConfig.s3Secret && savedConfig.apiKey) {
-        setConnectionMode('api');
+        setConnectionMode(ConnectionMode.api);
       }
     }
   }, [navigate]);
@@ -84,7 +85,7 @@ function Gallery() {
     // Check location and API key loaded
     if (!location || !glConfig) return;
     setIsLoading(true);
-    setIndex(-1);
+    setLightboxIndex(-1);
     setHasMoreImage(false);
 
     // Clear old image cache on first visit
@@ -104,7 +105,7 @@ function Gallery() {
     }
 
     // Define variables
-    let paths: PathMap = { ...mapping };
+    let paths: PathMap = { ...pathMapping };
     const segments: PathBreadcrumb[] = [];
 
     // The pathname should be something like /gallery/path/to/subfolder
@@ -114,7 +115,7 @@ function Gallery() {
       let currentPath = '';
       const pathSegments = fileLuPath.substring(1).split('/');
 
-      if ('s3' === connectionMode) {
+      if (ConnectionMode.s3 === connectionMode) {
         // S3 mode, just split the path
         for (let segment of pathSegments) {
           currentPath += `/${segment}`;
@@ -184,7 +185,7 @@ function Gallery() {
           // Use last parent ID as folder ID for listing
           setListFolderId(parentId);
           // All good!
-          setMapping(paths);
+          setPathMapping(paths);
           setBreadcrumbs(segments);
           setFolderPath(fileLuPath || '/');
         }).catch(err => {
@@ -196,7 +197,7 @@ function Gallery() {
     } else {
       // This is root path
       console.log('Using root path.');
-      if ('api' === connectionMode) {
+      if (ConnectionMode.api === connectionMode) {
         setListFolderId(0);
       }
       setBreadcrumbs([]);
@@ -217,7 +218,7 @@ function Gallery() {
           files: [],
           folders: [],
         }, summaryText: string;
-        if ('s3' === connectionMode) {
+        if (ConnectionMode.s3 === connectionMode) {
           // FileLu S5 API
           if ('/' === folderPath) {
             // Get buckets
@@ -244,10 +245,10 @@ function Gallery() {
             }
             listResult = await S3Utils.listBucketContent(glConfig.s3Id, glConfig.s3Secret, bucketName, contentPath, sortType);
           }
-          setFolders(listResult.folders);
+          setFolderItems(listResult.folders);
         } else {
           // FileLu Native API
-          let paths: PathMap = { ...mapping };
+          let paths: PathMap = { ...pathMapping };
 
           // Get folder content
           listResult = await ApiUtils.getFolderContent(glConfig.apiKey, listFolderId, sortType);
@@ -255,8 +256,8 @@ function Gallery() {
             paths = AppUtils.updatePathMap(paths, folderPath, folder);
             return folder;
           });
-          setFolders(subFolders);
-          setMapping((prevMapping) => ({
+          setFolderItems(subFolders);
+          setPathMapping((prevMapping) => ({
             ...prevMapping,
             ...paths
           }));
@@ -300,7 +301,7 @@ function Gallery() {
         }
 
         // Show summary and stop loading
-        setSummary(summaryText);
+        setSummaryText(summaryText);
       } catch (ex) {
         // Error occurred?
         const errorMsg = AppUtils.getErrorMessage(ex);
@@ -365,7 +366,7 @@ function Gallery() {
 
           // Handle cached file binary
           let fileBytes: Uint8Array<ArrayBuffer> | null = null, readCache = false;
-          if ('s3' === connectionMode) {
+          if (ConnectionMode.s3 === connectionMode) {
             // For S3 API, always check file cache
             readCache = true;
           } else {
@@ -383,13 +384,13 @@ function Gallery() {
 
           // Download image data if cache not found
           if (!fileBytes) {
-            if ('s3' === connectionMode) {
+            if (ConnectionMode.s3 === connectionMode) {
               // For S3 API, make download request
               const resp = await S3Utils.makeDownloadRequest(glConfig.s3Id, glConfig.s3Secret, image.code);
               if (!resp.ok) {
                 // Fetch failed?
                 image.title = `Failed to download file content: HttpStatus=${resp.status}`;
-                image.thumbnail = '/stop-error.png';
+                image.thumbnail = STOP_ERROR_URL;
               } else {
                 // Read as array buffer
                 const fileBuffer = await resp.arrayBuffer();
@@ -435,12 +436,12 @@ function Gallery() {
                   } else {
                     // Fetch failed?
                     image.title = `Failed to download encrypted content: HttpStatus=${resp.status}`;
-                    image.thumbnail = '/stop-error.png';
+                    image.thumbnail = STOP_ERROR_URL;
                   }
                 } else {
                   // No proxy image URL?
                   image.title = 'Unsupported FileLu URL: ' + linkResult.url;
-                  image.thumbnail = '/stop-error.png';
+                  image.thumbnail = STOP_ERROR_URL;
                 }
               } else {
                 // Not encrypted image, update full URL to target item
@@ -470,7 +471,7 @@ function Gallery() {
               } catch (ex) {
                 // Failed to decrypt, probably due to wrong password
                 console.warn(`Failed to decrypted content: ${image.name}`, ex);
-                image.thumbnail = '/stop-error.png';
+                image.thumbnail = STOP_ERROR_URL;
                 shouldClearPassword = true;
               }
             } else {
@@ -556,13 +557,12 @@ function Gallery() {
 
     // Save sorting type to session
     sessionStorage.setItem('sortType', SortType[sortType]);
-
   }, [sortType]);
 
   const handleImageClick = (imageIndex: number) => {
     // Show lightbox only when image full size URLs loaded
     if (onScreenImages && imageIndex < onScreenImages.length && onScreenImages[imageIndex].src) {
-      setIndex(imageIndex);
+      setLightboxIndex(imageIndex);
     }
   };
 
@@ -585,7 +585,7 @@ function Gallery() {
     setOnScreenImages(newImages);
     setFetchContent(true);
     setHasMoreImage(false);
-    setSummary(`${folders.length} folder(s), ${newImages.length} image(s) out of ${filesInFolder} file(s)`);
+    setSummaryText(`${folderItems.length} folder(s), ${newImages.length} image(s) out of ${filesInFolder} file(s)`);
   };
 
   const handleImageDelete = async (imageIndex: number) => {
@@ -601,7 +601,7 @@ function Gallery() {
 
       // Send delete request
       const fileCode = targetImage.code;
-      if ('s3' === connectionMode) {
+      if (ConnectionMode.s3 === connectionMode) {
         await S3Utils.deleteFile(glConfig!.s3Id, glConfig!.s3Secret, fileCode);
       } else {
         await ApiUtils.deleteFile(glConfig!.apiKey, fileCode);
@@ -662,9 +662,9 @@ function Gallery() {
       }
 
       {!isLoading && <>
-        {(0 !== folders.length || 0 !== onScreenImages.length) && <>
+        {(0 !== folderItems.length || 0 !== onScreenImages.length) && <>
           <div className="gallery-view row">
-            {folders.map(folder => (
+            {folderItems.map(folder => (
               <div key={folder.id} className="col-6 col-md-4 col-lg-3 col-xxl-2 mb-4" title={folder.name}>
                 <Link to={folder.navPath} className="card">
                   <div className="image-container">
@@ -698,10 +698,10 @@ function Gallery() {
               <Lightbox
                 plugins={[Captions, Zoom]}
                 captions={{ hidden: true, showToggle: true }}
-                index={index}
+                index={lightboxIndex}
                 slides={onScreenImages}
-                open={index >= 0}
-                close={() => setIndex(-1)}
+                open={lightboxIndex >= 0}
+                close={() => setLightboxIndex(-1)}
               />
             </>}
           </div>
@@ -709,7 +709,7 @@ function Gallery() {
             onClick={() => loadRemainingImages()}>
             <Images />&nbsp;Load remaining images</button>}
         </>}
-        {0 === folders.length && 0 === onScreenImages.length && !failMsg && <>
+        {0 === folderItems.length && 0 === onScreenImages.length && !failMsg && <>
           <Alert variant="warning" className="text-center">
             <ExclamationTriangle />
             &nbsp;No images in this folder.
@@ -721,9 +721,9 @@ function Gallery() {
             <Alert.Link href="/gallery">Go back to root folder</Alert.Link>.
           </Alert>
         </>}
-        {summary && <>
+        {summaryText && <>
           <hr />
-          <div className="text-body-secondary text-end">{summary}</div>
+          <div className="text-body-secondary text-end">{summaryText}</div>
         </>}
       </>}
       <PasswordModal
