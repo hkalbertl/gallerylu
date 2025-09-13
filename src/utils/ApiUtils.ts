@@ -100,7 +100,6 @@ export default class ApiUtils {
             }
             // Check if current file is encrypted
             if (fileItem.name.endsWith('.enc')) {
-              fileItem.thumbnail = '/locked.png';
               fileItem.encrypted = true;
             }
             return fileItem;

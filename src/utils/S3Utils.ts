@@ -32,12 +32,12 @@ export default class S3Utils {
     });
   };
 
-  static makeSignedRequest = async (accessId: string, secretKey: string, path: string, query?: Record<string, string>) => {
+  static makeSignedRequest = async (accessId: string, secretKey: string, path: string, query?: Record<string, string>, httpMethod: string = 'GET') => {
     const signer = S3Utils.createSignature(accessId, secretKey);
     const request = new HttpRequest({
       protocol: S3Utils.S3_PROTOCOL,
       hostname: S3Utils.S3_HOSTNAME,
-      method: "GET",
+      method: httpMethod,
       path,
       query,
     });
@@ -104,12 +104,10 @@ export default class S3Utils {
           code: relativePath,
           name: fileName,
           uploaded: localTime.format(DateTimeDisplayFormat),
-          thumbnail: '/loading.png',
         } as FileItem;
         fileItem.title = `${fileItem.name} (${fileItem.uploaded})`;
         // Check if current file is encrypted
         if (fileItem.name.endsWith('.enc')) {
-          fileItem.thumbnail = '/locked.png';
           fileItem.encrypted = true;
         }
         return fileItem;
@@ -141,4 +139,14 @@ export default class S3Utils {
   static makeDownloadRequest = async (accessId: string, secretKey: string, relativePath: string): Promise<Response> => {
     return await S3Utils.makeSignedRequest(accessId, secretKey, `/${relativePath}`);
   };
+
+  static deleteFile = async (accessId: string, secretKey: string, relativePath: string): Promise<boolean> => {
+    const res = await S3Utils.makeSignedRequest(accessId, secretKey, relativePath, undefined, 'DELETE');
+    if (res.ok) {
+      return true;
+    } else {
+      const content = await res.text();
+      throw `Unknown API response (status: ${res.status}): ${content}`;
+    }
+  }
 }
