@@ -24,12 +24,12 @@ export default class ImageCacheUtils {
     })
   };
 
-  static async set(id: string, encryptedBytes: Uint8Array) {
+  static async set(id: string, encryptedBytes: Uint8Array<ArrayBuffer>) {
     const db = await ImageCacheUtils.dbPromise();
     await db.put(ImageCacheUtils.STORE_NAME, { id, data: encryptedBytes, timestamp: Date.now() });
   };
 
-  static async get(id: string): Promise<Uint8Array | null> {
+  static async get(id: string): Promise<Uint8Array<ArrayBuffer> | null> {
     const db = await ImageCacheUtils.dbPromise();
     const entry = await db.get(ImageCacheUtils.STORE_NAME, id);
     return entry ? entry.data : null;

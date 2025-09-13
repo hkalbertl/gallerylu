@@ -1,7 +1,17 @@
+/**
+ * The configuration values used by this app, such as FileLu API Key and S3 Access ID / Key.
+ */
+export interface GLConfig {
+  apiKey: string;
+  s3Id: string;
+  s3Secret: string;
+}
+
 export interface FileItem {
 
   /**
-   * FileLu file code.
+   * FileLu file code for native API.
+   * Or file relative path for S3 API.
    */
   code: string;
 
@@ -89,3 +99,7 @@ export enum SortType {
   'name',
   'uploaded'
 }
+
+export type ConnectionMode = 's3' | 'api';
+
+export const DateTimeDisplayFormat = 'YYYY-MM-DD HH:mm:ss';

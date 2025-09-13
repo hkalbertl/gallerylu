@@ -1,7 +1,7 @@
 {
   "name": "gallerylu",
   "description": "A React-based image gallery for previewing images uploaded to FileLu cloud storage.",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "type": "module",
   "author": "Albert L <hkalbertl@users.noreply.github.com>",
   "license": "MIT",
@@ -12,9 +12,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-crypto/sha256-js": "^5.2.0",
+    "@smithy/protocol-http": "^5.2.1",
+    "@smithy/signature-v4": "^5.2.1",
     "bootstrap": "^5.3.8",
-    "dayjs": "^1.11.13",
-    "idb": "^8.0.2",
+    "dayjs": "^1.11.18",
+    "fast-xml-parser": "^5.2.5",
+    "idb": "^8.0.3",
     "react": "^19.1.1",
     "react-bootstrap": "^2.10.10",
     "react-bootstrap-icons": "^1.11.6",
@@ -33,6 +37,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.14.0",
+    "sass-embedded": "^1.92.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.33.1",
     "vite": "^7.1.5"
