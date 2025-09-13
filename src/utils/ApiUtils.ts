@@ -1,8 +1,8 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
-import { FileItem, FolderItem, FileDirectLinkResult, ListFolderResult, SortType } from "../types/models";
 import AppUtils from "./AppUtils";
+import { FileItem, FolderItem, FileDirectLinkResult, ListFolderResult, SortType, DateTimeDisplayFormat } from "../types/models";
 
 // Load plugins
 dayjs.extend(utc);
@@ -19,11 +19,6 @@ export default class ApiUtils {
    * FileLu time zone for file uploaded date/time.
    */
   private static API_TIME_ZOME = 'America/New_York';
-
-  /**
-   * Date/time display format.
-   */
-  private static DATETIME_DISPLAY_FORMAT = 'YYYY-MM-DD HH:mm:ss';
 
   /**
    * Validate the FileLu API key.
@@ -58,7 +53,7 @@ export default class ApiUtils {
       }
     } catch (ex) {
       // Unknown error?
-      error = `Unknown error: ${ex}`;
+      error = `Unknown error: ${AppUtils.getErrorMessage(ex)}`;
     }
     throw error;
   }
@@ -67,6 +62,7 @@ export default class ApiUtils {
    * Get files and sub-folders by specified folder ID.
    * @param apiKey FileLu API key.
    * @param folderId Target folder's ID, 0 is the root folder.
+   * @param sortType The file sorting type.
    * @returns The files and sub-folders of target folder.
    */
   static async getFolderContent(apiKey: string, folderId: number, sortType: SortType): Promise<ListFolderResult> {
@@ -83,7 +79,7 @@ export default class ApiUtils {
             const fileItem = {
               code: item.file_code,
               name: item.name,
-              parent: item.fld_id,
+              // parent: item.fld_id,
               thumbnail: item.thumbnail,
               encrypted: false
             } as FileItem;
@@ -91,7 +87,7 @@ export default class ApiUtils {
             if (item.uploaded) {
               // FileLu is using EST time zone
               const localTime = dayjs.tz(item.uploaded, ApiUtils.API_TIME_ZOME).tz(dayjs.tz.guess());
-              fileItem.uploaded = localTime.format(ApiUtils.DATETIME_DISPLAY_FORMAT);
+              fileItem.uploaded = localTime.format(DateTimeDisplayFormat);
               fileItem.title = `${fileItem.name} (${fileItem.uploaded})`;
             } else {
               // No uploaded time?
@@ -100,7 +96,6 @@ export default class ApiUtils {
             }
             // Check if current file is encrypted
             if (fileItem.name.endsWith('.enc')) {
-              fileItem.thumbnail = '/locked.png';
               fileItem.encrypted = true;
             }
             return fileItem;
@@ -136,7 +131,7 @@ export default class ApiUtils {
       }
     } catch (ex) {
       // Unknown error?
-      error = `Unknown error: ${ex}`;
+      error = `Unknown error: ${AppUtils.getErrorMessage(ex)}`;
     }
     throw error;
   }
@@ -176,7 +171,7 @@ export default class ApiUtils {
       }
     } catch (ex) {
       // Unknown error?
-      error = `Unknown error: ${ex}`;
+      error = `Unknown error: ${AppUtils.getErrorMessage(ex)}`;
     }
     throw error;
   }
@@ -208,7 +203,7 @@ export default class ApiUtils {
       }
     } catch (ex) {
       // Unknown error?
-      error = `Unknown error: ${ex}`;
+      error = `Unknown error: ${AppUtils.getErrorMessage(ex)}`;
     }
     throw error;
   }
