@@ -65,7 +65,6 @@ function Config() {
       } else if (ProviderType.FileLuApi === providerType) {
         apiClient = new FileLuApi(fileLuApiKey);
       }
-      debugger;
       if (!apiClient) {
         setError("Unknown connection method.");
         return;
@@ -180,7 +179,7 @@ function Config() {
                   <FormControl type="password" value={awsS3SecretKey} onInput={(e) => setAwsS3SecretKey(e.currentTarget.value)} />
                 </FormGroup>
                 <Form.Check
-                  type="switch" id="awsS3UrlStyle" label={<>Use <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#virtual-hosted-style-access" target="_blank">Virtual Host <BoxArrowUpRight /></a> URL Style</>}
+                  type="switch" id="awsS3UrlStyle" className="mb-3" label={<>Use <b>Virtual Host</b> URL Style</>}
                   checked={awsS3VirtualHostStyle} onChange={e => setAwsS3VirtualHostStyle(e.currentTarget.checked)}
                 />
                 <Alert variant="info">
@@ -189,6 +188,8 @@ function Config() {
                     <li>Access-Control-Allow-Origin: {location.origin}</li>
                     <li>Access-Control-Allow-Methods: GET, DELETE, HEAD</li>
                   </ul>
+                  <p>If you are using <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#virtual-hosted-style-access" target="_blank">Virtual Host <BoxArrowUpRight /></a> URL style, the Host Name should be something like <code>[your-bucket-name].s3.your-provider.com</code>.</p>
+                  <p>If you are using <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#path-style-access" target="_blank">Path <BoxArrowUpRight /></a> URL style, the Host Name should be something like <code>s3.your-provider.com</code>.</p>
                 </Alert>
               </Accordion.Body>
             </Accordion.Item>

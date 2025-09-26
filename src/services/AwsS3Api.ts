@@ -78,13 +78,12 @@ export default class AwsS3Api implements StorageProvider {
       }
     } catch (ex) {
       // Error occurred, probably invalid host / CORS problems
-      console.error(`Failed to validate credentials to ${this.hostName}:`, ex);
       if (ex instanceof TypeError) {
-        // CORS error?
-        errorMessage = ex.message;
-        debugger;
+        // Network or CORS error?
+        errorMessage = `Failed to connect to ${this.hostName}. Pleaes double check the Host Name and bucket CORS settings.`;
       } else {
         // Unknown error
+        console.error(`Failed to validate credentials to ${this.hostName}:`, ex);
         errorMessage = getErrorMessage(ex);
       }
     }
