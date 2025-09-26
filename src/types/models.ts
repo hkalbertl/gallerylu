@@ -2,21 +2,31 @@
  * The configuration values used by this app, such as FileLu API Key and S3 Access ID / Key.
  */
 export interface GLConfig {
+  /**
+   * The provider type.
+   */
+  provider?: ProviderType;
 
   /**
    * FileLu native API Key.
    */
-  apiKey: string;
+  apiKey?: string;
 
   /**
-   * FileLu S5 (AWS S3 compatible) Access Key ID.
+   * Access Key ID.
    */
-  s3Id: string;
+  accessId?: string;
 
   /**
-   * FileLu S5 (AWS S3 compatible) Secret Key.
+   * Secret Key.
    */
-  s3Secret: string;
+  secretKey?: string;
+
+  hostName?: string;
+
+  region?: string;
+
+  urlStyle?: S3UrlStyle;
 }
 
 export interface FileItem {
@@ -36,11 +46,6 @@ export interface FileItem {
    * FileLu uploaded time.
    */
   uploaded: string;
-
-  /**
-   * FileLu folder ID.
-   */
-  // parent: number;
 
   /**
    * FileLu thumbnail URL.
@@ -75,17 +80,9 @@ export interface FolderItem {
   name: string;
 
   /**
-   * The navigation path on GalleryLu.
-   * The content should start with `/gallery`.
+   * The full remote path to current folder. Such as `/TestS3/path/to/folder`.
    */
-  navPath: string;
-}
-
-export interface PathBreadcrumb {
-  id: number;
   path: string;
-  navPath: string;
-  name: string;
 }
 
 export interface PathMap {
@@ -109,15 +106,22 @@ export enum SortType {
   'uploaded'
 }
 
-export enum ConnectionMode {
+export enum ProviderType {
   /**
    * FileLu S5 API (AWS S3 compatible)
    */
-  's3' = 's3',
+  'FileLuS5Api' = 's5',
+  /**
+   * AWS S3 API
+   */
+  'AwsS3Api' = 's3',
   /**
    * FileLu native API
    */
-  'api' = 'api',
+  'FileLuApi' = 'api',
 }
 
-export const DateTimeDisplayFormat = 'YYYY-MM-DD HH:mm:ss';
+export enum S3UrlStyle {
+  path = 1,
+  virtualHost = 2,
+}

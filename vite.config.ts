@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => ({
   },
   esbuild: {
     // Drop console.log on production
-    pure: mode === 'production' ? ['console.log'] : [],
+    pure: mode === 'production' ? ['console.log', 'console.debug', 'console.trace'] : [],
   },
   server: {
     open: '/',

@@ -8,11 +8,11 @@ export default class ImageCacheUtils {
   /**
    * Max. age of cache, 7 days in milliseconds
    */
-  private static CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+  private static readonly CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
-  private static DATABASE_NAME = 'GalleryCache';
+  private static readonly DATABASE_NAME = 'GalleryCache';
 
-  private static STORE_NAME = 'images';
+  private static readonly STORE_NAME = 'images';
 
   private static async dbPromise() {
     return openDB(ImageCacheUtils.DATABASE_NAME, 1, {

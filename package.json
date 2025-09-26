@@ -1,7 +1,19 @@
 {
   "name": "gallerylu",
+  "version": "0.2.1",
   "description": "A React-based image gallery for previewing images uploaded to FileLu cloud storage.",
-  "version": "0.2.0",
+  "keywords": [
+    "cloud-storage",
+    "filelu",
+    "s3",
+    "aws-s3",
+    "image",
+    "gallery",
+    "encryption",
+    "react",
+    "typescript"
+  ],
+  "private": true,
   "type": "module",
   "author": "Albert L <hkalbertl@users.noreply.github.com>",
   "license": "MIT",
@@ -23,23 +35,23 @@
     "react-bootstrap": "^2.10.10",
     "react-bootstrap-icons": "^1.11.6",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.8.2",
-    "wcipher": "^0.0.4",
+    "react-router-dom": "^7.9.2",
+    "wcipher": "^0.0.5",
     "yet-another-react-lightbox": "^3.25.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
-    "@types/react": "^19.1.12",
+    "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
-    "@vitejs/plugin-react": "^4.7.0",
-    "cross-env": "^7.0.3",
-    "eslint": "^9.19.0",
+    "@vitejs/plugin-react": "^5.0.3",
+    "cross-env": "^10.0.0",
+    "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
-    "globals": "^15.14.0",
-    "sass-embedded": "^1.92.1",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.33.1",
-    "vite": "^7.1.5"
+    "eslint-plugin-react-refresh": "^0.4.22",
+    "globals": "^16.4.0",
+    "sass-embedded": "^1.93.2",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.44.1",
+    "vite": "^7.1.7"
   }
 }

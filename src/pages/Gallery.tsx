@@ -1,32 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Alert, Breadcrumb, Button, ButtonGroup, Spinner } from "react-bootstrap";
 import { Folder as FolderIcon, Images, ExclamationTriangle, DashCircle, SortAlphaDown, Clock, Trash } from "react-bootstrap-icons";
 import { Lightbox } from "yet-another-react-lightbox";
 import { Captions, Zoom } from "yet-another-react-lightbox/plugins";
 import WCipher from "wcipher";
-
+import { GALLERY_BATCH_SIZE, GALLERY_BATCH_SLEEP, GALLERY_FIRST_LOAD_IMAGES } from "../constants/common";
 import PasswordModal from "../components/PasswordModal";
-import { FileItem, FolderItem, ListFolderResult, PathMap, PathBreadcrumb, SortType, GLConfig, ConnectionMode } from "../types/models";
-import ApiUtils from "../utils/ApiUtils";
-import AppUtils from "../utils/AppUtils";
+import { FileItem, FolderItem, SortType, ProviderType } from "../types/models";
+import { extractImages, getBlobTypeByExtName, getErrorMessage, sleep, sortByNameAsc, sortByTimeDesc, toDisplaySize } from "../utils/AppUtils";
 import ImageCacheUtils from "../utils/ImageCacheUtils";
 import ConfigUtils from "../utils/ConfigUtils";
-import S3Utils from "../utils/S3Utils";
+import StorageProvider from "../services/StorageProvider";
+import FileLuS5Api from "../services/FileLuS5Api";
+import FileLuApi from "../services/FileLuApi";
+import AwsS3Api from "../services/AwsS3Api";
 
 import "yet-another-react-lightbox/styles.css";
 import "yet-another-react-lightbox/plugins/captions.css";
 import '../css/gallery.scss';
 
 function Gallery() {
-
-  const BATCH_SIZE = 6;
-  const BATCH_SLEEP = 400;
-
-  /**
-   * Maximum number of images will be loaded when entering a folder.
-   */
-  const FIRST_LOAD_IMAGES = 12;
 
   /**
    * Use proxy for encrypted images.
@@ -41,18 +35,12 @@ function Gallery() {
   const location = useLocation();
   const [isFirstVisit, setIsFirstVisit] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [connectionMode, setConnectionMode] = useState<ConnectionMode>(ConnectionMode.s3);
-  const [glConfig, setGlConfig] = useState<GLConfig | null>(null);
+  const [providerType, setProviderType] = useState<ProviderType>(ProviderType.FileLuS5Api);
   const [encPassword, setEncPassword] = useState<string | null>(null);
   const [folderPath, setFolderPath] = useState<string>('');
-  const [breadcrumbs, setBreadcrumbs] = useState<PathBreadcrumb[]>([]);
-  const [listFolderId, setListFolderId] = useState<number>(0);
+  const [breadcrumbs, setBreadcrumbs] = useState<FolderItem[]>([]);
   const [filesInFolder, setFilesInFolder] = useState<number>(0);
-
-  /**
-   * The folder path / ID mapping for native API.
-   */
-  const [pathMapping, setPathMapping] = useState<PathMap>({});
+  const apiClientRef = useRef<StorageProvider>(undefined);
 
   const [sortType, setSortType] = useState<SortType>(SortType.name);
   const [allImages, setAllImages] = useState<FileItem[]>([]);
@@ -65,25 +53,43 @@ function Gallery() {
   const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [failMsg, setFailMsg] = useState<string>('');
 
-  // Check API key exists, or redirect to config page when not found
+  // Check API client exists, or redirect to config page when not found
   useEffect(() => {
+    // Check if API client's configuration update
     const savedConfig = ConfigUtils.loadConfig();
-    if (!savedConfig.apiKey && !(savedConfig.s3Id || savedConfig.s3Secret)) {
+    if (apiClientRef.current) {
+      if (apiClientRef.current.provider === savedConfig.provider) {
+        // Same provider, no further actions needed
+        return;
+      }
+    }
+    // Page first load or config provider changed
+    let apiClient: StorageProvider | undefined = undefined;
+    if (savedConfig?.provider) {
+      if (ProviderType.FileLuS5Api === savedConfig.provider) {
+        apiClient = new FileLuS5Api(savedConfig.accessId, savedConfig.secretKey);
+      } else if (ProviderType.FileLuApi === savedConfig.provider) {
+        apiClient = new FileLuApi(savedConfig.apiKey);
+      } else if (ProviderType.AwsS3Api === savedConfig.provider) {
+        apiClient = new AwsS3Api(savedConfig.accessId, savedConfig.secretKey,
+          savedConfig.hostName, savedConfig.region, savedConfig.urlStyle);
+      }
+    }
+    // Check API client created
+    if (apiClient) {
+      apiClientRef.current = apiClient;
+      setProviderType(apiClient.provider);
+      console.debug(`Using provider: ${apiClient.provider}`);
+    } else {
       // Redirect to Config page
       navigate("/config");
-    } else {
-      // Config valid
-      setGlConfig(savedConfig);
-      if (!savedConfig.s3Id && !savedConfig.s3Secret && savedConfig.apiKey) {
-        setConnectionMode(ConnectionMode.api);
-      }
     }
   }, [navigate]);
 
   // Extract path from URL
   useEffect(() => {
-    // Check location and API key loaded
-    if (!location || !glConfig) return;
+    // Check location and API client
+    if (!location || !apiClientRef.current) return;
     setIsLoading(true);
     setLightboxIndex(-1);
     setHasMoreImage(false);
@@ -104,167 +110,41 @@ function Gallery() {
       }
     }
 
-    // Define variables
-    let paths: PathMap = { ...pathMapping };
-    const segments: PathBreadcrumb[] = [];
-
     // The pathname should be something like /gallery/path/to/subfolder
-    const fileLuPath = location.pathname.substring(8);
-    if (1 < fileLuPath.length) {
-      // Build breadcrumbs
-      let currentPath = '';
-      const pathSegments = fileLuPath.substring(1).split('/');
-
-      if (ConnectionMode.s3 === connectionMode) {
-        // S3 mode, just split the path
-        for (let segment of pathSegments) {
-          currentPath += `/${segment}`;
-          segments.push({
-            id: 0,
-            name: segment,
-            path: currentPath,
-            navPath: `/gallery${currentPath}`
-          });
-        }
+    const relativePath = location.pathname.substring(8);
+    if (1 < relativePath.length) {
+      // Build breadcrumbs by using .then() style instead of await due to useEffect limitation
+      apiClientRef.current.generatePathBreadcrumbs(relativePath).then(segments => {
         // All good!
         setBreadcrumbs(segments);
-        setFolderPath(fileLuPath || '/');
-      } else {
-        // Define async function to build breadcrumbs by path segments
-        let parentId = 0;
-        const processSegments = async () => {
-          let shouldSkip = false, level = 0;
-          console.log(`Build breadcrumb list for path: ${fileLuPath}`);
-          for (const pathSegment of pathSegments) {
-            // Set current path
-            currentPath += `/${pathSegment}`;
-            console.log(`L${++level}: ${currentPath}`);
-
-            // Find target folder ID
-            let folderId = 0;
-            if (paths[currentPath]) {
-              // Folder ID found in mapping
-              folderId = paths[currentPath];
-              parentId = folderId;
-              console.log(`> Path mapping found: ID=${folderId}`);
-            } else {
-              // Folder is not found, retrieve it
-              const folderContent: ListFolderResult = await ApiUtils.getFolderContent(glConfig.apiKey, parentId, sortType);
-              console.log(`> List content: Folders=${folderContent.folders.length}, Files=${folderContent.files.length}`);
-              folderContent.folders.forEach(folder => {
-                // Update mapping
-                paths = AppUtils.updatePathMap(paths, '/', folder);
-                // Keep if it is current folder
-                if (folder.name === pathSegment) {
-                  folderId = folder.id;
-                  parentId = folderId;
-                  console.log(`> Folder found: ID=${folderId}`);
-                }
-              });
-            }
-            if (!folderId) {
-              // Folder is not found, break the loop
-              shouldSkip = true;
-              break;
-            }
-            // Push to segment list
-            segments.push({
-              path: currentPath,
-              navPath: `/gallery${currentPath}`,
-              name: pathSegment,
-              id: folderId
-            } as PathBreadcrumb);
-          }
-          if (shouldSkip) {
-            throw 'File path is not found.';
-          }
-        }
-
-        // Use .then() style instead of await due to useEffect limitation
-        processSegments().then(() => {
-          // Use last parent ID as folder ID for listing
-          setListFolderId(parentId);
-          // All good!
-          setPathMapping(paths);
-          setBreadcrumbs(segments);
-          setFolderPath(fileLuPath || '/');
-        }).catch(err => {
-          // Path not found or unknown errors
-          setFailMsg(AppUtils.getErrorMessage(err));
-          setIsLoading(false);
-        });
-      }
+        setFolderPath(relativePath || '/');
+      }).catch(err => {
+        // Path not found or unknown errors
+        setFailMsg(getErrorMessage(err));
+        setIsLoading(false);
+      });
     } else {
       // This is root path
       console.log('Using root path.');
-      if (ConnectionMode.api === connectionMode) {
-        setListFolderId(0);
-      }
       setBreadcrumbs([]);
       setFolderPath('/');
     }
-  }, [location, glConfig]);
+  }, [location, apiClientRef]);
 
   // Load folder content
   useEffect(() => {
     // Check API key
-    if (!glConfig || !folderPath) return;
+    if (!apiClientRef.current || !folderPath) return;
 
     const loadGallery = async () => {
+      setFailMsg('');
       try {
-        // Check connection type
-        let listResult: ListFolderResult = {
-          folderId: 0,
-          files: [],
-          folders: [],
-        }, summaryText: string;
-        if (ConnectionMode.s3 === connectionMode) {
-          // FileLu S5 API
-          if ('/' === folderPath) {
-            // Get buckets
-            const buckets = await S3Utils.listBuckets(glConfig.s3Id, glConfig.s3Secret);
-            if (buckets && buckets.length) {
-              // One or more buckets
-              listResult.folders = buckets.map((bucket, index) => ({
-                id: index,
-                name: bucket,
-                navPath: bucket
-              }));
-            }
-          } else {
-            // Get bucket content
-            let bucketName = '', contentPath = '';
-            const slashAfterBucket = folderPath.indexOf('/', 1);
-            if (-1 === slashAfterBucket) {
-              // Bucket root, such as /TestS3
-              bucketName = folderPath.substring(1);
-            } else {
-              // Sub folder of bucket, such as /TestS3/Inner
-              bucketName = folderPath.substring(1, slashAfterBucket);
-              contentPath = folderPath.substring(slashAfterBucket + 1);
-            }
-            listResult = await S3Utils.listBucketContent(glConfig.s3Id, glConfig.s3Secret, bucketName, contentPath, sortType);
-          }
-          setFolderItems(listResult.folders);
-        } else {
-          // FileLu Native API
-          let paths: PathMap = { ...pathMapping };
-
-          // Get folder content
-          listResult = await ApiUtils.getFolderContent(glConfig.apiKey, listFolderId, sortType);
-          const subFolders = listResult.folders.map(folder => {
-            paths = AppUtils.updatePathMap(paths, folderPath, folder);
-            return folder;
-          });
-          setFolderItems(subFolders);
-          setPathMapping((prevMapping) => ({
-            ...prevMapping,
-            ...paths
-          }));
-        }
+        // Get folder content
+        const listResult = await apiClientRef.current!.listFolder(folderPath, sortType);
+        setFolderItems(listResult.folders);
 
         // Filter out non-images files
-        const folderImages = AppUtils.extractImages(listResult.files);
+        const folderImages = extractImages(listResult.files);
 
         // Set thumbnail
         folderImages.forEach(image => {
@@ -280,11 +160,11 @@ function Gallery() {
         setFilesInFolder(listResult.files.length);
 
         // Set viewable images
-        let viewableImages: FileItem[];
-        if (FIRST_LOAD_IMAGES < folderImages.length) {
-          viewableImages = folderImages.slice(0, FIRST_LOAD_IMAGES);
+        let viewableImages: FileItem[], summaryText: string;
+        if (GALLERY_FIRST_LOAD_IMAGES < folderImages.length) {
+          viewableImages = folderImages.slice(0, GALLERY_FIRST_LOAD_IMAGES);
           setHasMoreImage(true);
-          summaryText = `${listResult.folders.length} folder(s), first ${FIRST_LOAD_IMAGES} of ${folderImages.length} image(s) showed, total ${listResult.files.length} file(s)`;
+          summaryText = `${listResult.folders.length} folder(s), first ${GALLERY_FIRST_LOAD_IMAGES} of ${folderImages.length} image(s) showed, total ${listResult.files.length} file(s)`;
         } else {
           viewableImages = folderImages;
           summaryText = `${listResult.folders.length} folder(s), ${folderImages.length} image(s) out of ${listResult.files.length} file(s)`;
@@ -304,8 +184,8 @@ function Gallery() {
         setSummaryText(summaryText);
       } catch (ex) {
         // Error occurred?
-        const errorMsg = AppUtils.getErrorMessage(ex);
-        console.error('Failed to load gallery: ' + errorMsg);
+        const errorMsg = getErrorMessage(ex);
+        console.error(`Failed to load gallery: ${errorMsg}`);
         setFailMsg(errorMsg);
       } finally {
         setIsLoading(false);
@@ -313,12 +193,12 @@ function Gallery() {
     };
 
     loadGallery();
-  }, [glConfig, folderPath]);
+  }, [apiClientRef, folderPath]);
 
   // Download folder content when current folder content loaded
   useEffect(() => {
     // Check fetch content enabled
-    if (!fetchContent || !glConfig) return;
+    if (!fetchContent || !apiClientRef.current) return;
 
     // Use inner async function to download content
     let isCancelled = false;
@@ -343,7 +223,7 @@ function Gallery() {
 
       // Process on each batch
       let shouldClearPassword = false;
-      for (let b = 0; b < newImages.length; b += BATCH_SIZE) {
+      for (let b = 0; b < newImages.length; b += GALLERY_BATCH_SIZE) {
         // Make sure it is working on the same path
         if (isCancelled) {
           console.warn('Working folder path changed...');
@@ -352,7 +232,7 @@ function Gallery() {
 
         // Get current batch
         console.log(`Fetching batch[${b}]...`);
-        const batch = newImages.slice(b, b + BATCH_SIZE);
+        const batch = newImages.slice(b, b + GALLERY_BATCH_SIZE);
 
         // Make sure all items in current batch are finished
         let shouldSleep = false;
@@ -366,7 +246,7 @@ function Gallery() {
 
           // Handle cached file binary
           let fileBytes: Uint8Array<ArrayBuffer> | null = null, readCache = false;
-          if (ConnectionMode.s3 === connectionMode) {
+          if (ProviderType.FileLuS5Api === providerType) {
             // For S3 API, always check file cache
             readCache = true;
           } else {
@@ -384,9 +264,10 @@ function Gallery() {
 
           // Download image data if cache not found
           if (!fileBytes) {
-            if (ConnectionMode.s3 === connectionMode) {
+            if (ProviderType.FileLuS5Api === providerType || ProviderType.AwsS3Api === providerType) {
               // For S3 API, make download request
-              const resp = await S3Utils.makeDownloadRequest(glConfig.s3Id, glConfig.s3Secret, image.code);
+              const apiClient = apiClientRef.current as AwsS3Api;
+              const resp = await apiClient.makeDownloadRequest(image.code);
               if (!resp.ok) {
                 // Fetch failed?
                 image.title = `Failed to download file content: HttpStatus=${resp.status}`;
@@ -402,7 +283,8 @@ function Gallery() {
               }
             } else {
               // For native API, request full size URL
-              const linkResult = await ApiUtils.getFileDirectLink(glConfig.apiKey, image.code);
+              const apiClient = apiClientRef.current as FileLuApi;
+              const linkResult = await apiClient.getFileDirectLink(image.code);
               shouldSleep = true;
 
               // For encrypted images, download its binary
@@ -445,7 +327,7 @@ function Gallery() {
                 }
               } else {
                 // Not encrypted image, update full URL to target item
-                image.title = `${image.name} (${AppUtils.toDisplaySize(linkResult.size)} / ${image.uploaded})`;
+                image.title = `${image.name} (${toDisplaySize(linkResult.size)} / ${image.uploaded})`;
                 image.src = linkResult.url;
               }
             }
@@ -461,11 +343,11 @@ function Gallery() {
 
                 // Trim the .enc extension, such as `image.jpg.enc` to `image.jpg`
                 const fileNameWithoutEnc = image.name.substring(0, image.name.length - 4);
-                const imageBlob = new Blob([decryptedBytes], { type: AppUtils.getBlobTypeByExtName(fileNameWithoutEnc) });
+                const imageBlob = new Blob([decryptedBytes], { type: getBlobTypeByExtName(fileNameWithoutEnc) });
                 const imageUrl = URL.createObjectURL(imageBlob);
 
                 // Assign image data to image object
-                image.title = `${fileNameWithoutEnc} (${AppUtils.toDisplaySize(decryptedBytes.length)} / ${image.uploaded})`;
+                image.title = `${fileNameWithoutEnc} (${toDisplaySize(decryptedBytes.length)} / ${image.uploaded})`;
                 image.src = imageUrl;
                 image.thumbnail = imageUrl;
               } catch (ex) {
@@ -477,11 +359,11 @@ function Gallery() {
             } else {
               // Normal images, such as downloaded from S3
               // Use object URL for image
-              const imageBlob = new Blob([fileBytes], { type: AppUtils.getBlobTypeByExtName(image.name) }),
+              const imageBlob = new Blob([fileBytes], { type: getBlobTypeByExtName(image.name) }),
                 imageUrl = URL.createObjectURL(imageBlob);
               image.src = imageUrl;
               image.thumbnail = imageUrl;
-              image.title = `${image.name} (${AppUtils.toDisplaySize(fileBytes.byteLength)} / ${image.uploaded})`;
+              image.title = `${image.name} (${toDisplaySize(fileBytes.byteLength)} / ${image.uploaded})`;
             }
           }
         }));
@@ -517,9 +399,9 @@ function Gallery() {
         console.log(`Fetch completed on batch[${b}]`);
 
         // Add delay if it is not the last batch
-        if (shouldSleep && b + BATCH_SIZE < newImages.length) {
-          // Sleep for 500ms to prevent rate limiting
-          await AppUtils.sleep(BATCH_SLEEP);
+        if (shouldSleep && b + GALLERY_BATCH_SIZE < newImages.length) {
+          // Sleep for a while to prevent rate limiting
+          await sleep(GALLERY_BATCH_SLEEP);
         }
       }
       if (shouldClearPassword) {
@@ -544,13 +426,13 @@ function Gallery() {
     let newImages = [...allImages];
     if (SortType.uploaded === sortType) {
       // Sort by time DESC
-      newImages.sort(AppUtils.sortByTimeDesc);
+      newImages.sort(sortByTimeDesc);
     } else {
       // Sort by name ASC
-      newImages.sort(AppUtils.sortByNameAsc);
+      newImages.sort(sortByNameAsc);
     }
     if (hasMoreImage) {
-      newImages = newImages.slice(0, FIRST_LOAD_IMAGES);
+      newImages = newImages.slice(0, GALLERY_FIRST_LOAD_IMAGES);
     }
     setOnScreenImages(newImages);
     setFetchContent(true);
@@ -577,10 +459,10 @@ function Gallery() {
     let newImages = [...allImages];
     if (SortType.uploaded === sortType) {
       // Sort by time DESC
-      newImages.sort(AppUtils.sortByTimeDesc);
+      newImages.sort(sortByTimeDesc);
     } else {
       // Sort by name ASC
-      newImages.sort(AppUtils.sortByNameAsc);
+      newImages.sort(sortByNameAsc);
     }
     setOnScreenImages(newImages);
     setFetchContent(true);
@@ -601,11 +483,7 @@ function Gallery() {
 
       // Send delete request
       const fileCode = targetImage.code;
-      if (ConnectionMode.s3 === connectionMode) {
-        await S3Utils.deleteFile(glConfig!.s3Id, glConfig!.s3Secret, fileCode);
-      } else {
-        await ApiUtils.deleteFile(glConfig!.apiKey, fileCode);
-      }
+      await apiClientRef.current?.deleteFile(targetImage.code);
 
       // Refresh gallery
       const newOnScreenImages = onScreenImages.filter(img => img.code !== fileCode);
@@ -613,7 +491,7 @@ function Gallery() {
       const newAllImages = allImages.filter(img => img.code !== fileCode);
       setAllImages(newAllImages);
     } catch (ex) {
-      const errorMsg = AppUtils.getErrorMessage(ex);
+      const errorMsg = getErrorMessage(ex);
       console.error(`Failed to delete image[${targetImage.code}]: ${errorMsg}`);
     } finally {
       setIsLoading(false);
@@ -629,7 +507,7 @@ function Gallery() {
               <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/gallery" }}>[Root]</Breadcrumb.Item>
               {breadcrumbs.map((item, level) =>
                 <Breadcrumb.Item key={level} active={(level === breadcrumbs.length - 1)}
-                  linkAs={Link} linkProps={{ to: item.navPath }}>
+                  linkAs={Link} linkProps={{ to: `/gallery${item.path}` }}>
                   {item.name}
                 </Breadcrumb.Item>
               )}
@@ -666,7 +544,7 @@ function Gallery() {
           <div className="gallery-view row">
             {folderItems.map(folder => (
               <div key={folder.id} className="col-6 col-md-4 col-lg-3 col-xxl-2 mb-4" title={folder.name}>
-                <Link to={folder.navPath} className="card">
+                <Link to={`/gallery${folder.path}`} className="card">
                   <div className="image-container">
                     <FolderIcon className="folder-icon" />
                   </div>
