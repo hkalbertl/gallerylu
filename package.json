@@ -1,7 +1,7 @@
 {
   "name": "gallerylu",
-  "version": "0.2.1",
-  "description": "A React-based image gallery for previewing images uploaded to FileLu cloud storage.",
+  "version": "0.2.2",
+  "description": "A React-based image gallery for previewing images uploaded to FileLu / S3 cloud storage.",
   "keywords": [
     "cloud-storage",
     "filelu",

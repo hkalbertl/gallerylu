@@ -88,6 +88,13 @@ export function sortByNameAsc(a: { name: string; }, b: { name: string; }) {
 }
 
 /**
+ * Sorting function for name descending.
+ */
+export function sortByNameDesc(a: { name: string; }, b: { name: string; }) {
+  return Intl.Collator().compare(b.name, a.name);
+}
+
+/**
  * Sorting function for date/time descending.
  */
 export function sortByTimeDesc(a: { uploaded: string; }, b: { uploaded: string; }) {

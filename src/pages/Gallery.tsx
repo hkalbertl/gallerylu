@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Alert, Breadcrumb, Button, ButtonGroup, Spinner } from "react-bootstrap";
-import { Folder as FolderIcon, Images, ExclamationTriangle, DashCircle, SortAlphaDown, Clock, Trash } from "react-bootstrap-icons";
+import { Folder as FolderIcon, Images, ExclamationTriangle, DashCircle, SortAlphaDown, Clock, Trash, SortAlphaUp } from "react-bootstrap-icons";
 import { Lightbox } from "yet-another-react-lightbox";
 import { Captions, Zoom } from "yet-another-react-lightbox/plugins";
 import WCipher from "wcipher";
 import { GALLERY_BATCH_SIZE, GALLERY_BATCH_SLEEP, GALLERY_FIRST_LOAD_IMAGES } from "../constants/common";
 import PasswordModal from "../components/PasswordModal";
 import { FileItem, FolderItem, SortType, ProviderType } from "../types/models";
-import { extractImages, getBlobTypeByExtName, getErrorMessage, sleep, sortByNameAsc, sortByTimeDesc, toDisplaySize } from "../utils/AppUtils";
+import { extractImages, getBlobTypeByExtName, getErrorMessage, sleep, sortByNameAsc, sortByNameDesc, sortByTimeDesc, toDisplaySize } from "../utils/AppUtils";
 import ImageCacheUtils from "../utils/ImageCacheUtils";
 import ConfigUtils from "../utils/ConfigUtils";
 import StorageProvider from "../services/StorageProvider";
@@ -105,6 +105,8 @@ function Gallery() {
     if (sessionSortType) {
       if (SortType[SortType.uploaded] === sessionSortType) {
         setSortType(SortType.uploaded);
+      } else if (SortType[SortType.nameDesc] === sessionSortType) {
+        setSortType(SortType.nameDesc);
       } else if (SortType[SortType.name] === sessionSortType) {
         setSortType(SortType.name);
       }
@@ -267,14 +269,15 @@ function Gallery() {
             if (ProviderType.FileLuS5Api === providerType || ProviderType.AwsS3Api === providerType) {
               // For S3 API, make download request
               const apiClient = apiClientRef.current as AwsS3Api;
-              const resp = await apiClient.makeDownloadRequest(image.code);
-              if (!resp.ok) {
+              // const headers = await apiClient.headObject(image.code);
+              const res = await apiClient.makeDownloadRequest(image.code);
+              if (!res.ok) {
                 // Fetch failed?
-                image.title = `Failed to download file content: HttpStatus=${resp.status}`;
+                image.title = `Failed to download file content: HttpStatus=${res.status}`;
                 image.thumbnail = STOP_ERROR_URL;
               } else {
                 // Read as array buffer
-                const fileBuffer = await resp.arrayBuffer();
+                const fileBuffer = await res.arrayBuffer();
                 fileBytes = new Uint8Array<ArrayBuffer>(fileBuffer);
 
                 // Cache the data
@@ -419,23 +422,40 @@ function Gallery() {
     };
   }, [folderPath, fetchContent]);
 
-  // Sort images
+  // Sort folder content
   useEffect(() => {
-    if (!onScreenImages.length) return;
+    // Sort folders
+    if (folderItems.length) {
+      let newFolders = [...folderItems];
+      if (SortType.nameDesc === sortType) {
+        // Sort by name DESC
+        newFolders.sort(sortByNameDesc);
+      } else {
+        // Sort by name ASC
+        newFolders.sort(sortByNameAsc);
+      }
+      setFolderItems(newFolders);
+    }
 
-    let newImages = [...allImages];
-    if (SortType.uploaded === sortType) {
-      // Sort by time DESC
-      newImages.sort(sortByTimeDesc);
-    } else {
-      // Sort by name ASC
-      newImages.sort(sortByNameAsc);
+    // Sort images
+    if (onScreenImages.length) {
+      let newImages = [...allImages];
+      if (SortType.uploaded === sortType) {
+        // Sort by time DESC
+        newImages.sort(sortByTimeDesc);
+      } else if (SortType.nameDesc === sortType) {
+        // Sort by name DESC
+        newImages.sort(sortByNameDesc);
+      } else {
+        // Sort by name ASC
+        newImages.sort(sortByNameAsc);
+      }
+      if (hasMoreImage) {
+        newImages = newImages.slice(0, GALLERY_FIRST_LOAD_IMAGES);
+      }
+      setOnScreenImages(newImages);
+      setFetchContent(true);
     }
-    if (hasMoreImage) {
-      newImages = newImages.slice(0, GALLERY_FIRST_LOAD_IMAGES);
-    }
-    setOnScreenImages(newImages);
-    setFetchContent(true);
 
     // Save sorting type to session
     sessionStorage.setItem('sortType', SortType[sortType]);
@@ -460,6 +480,9 @@ function Gallery() {
     if (SortType.uploaded === sortType) {
       // Sort by time DESC
       newImages.sort(sortByTimeDesc);
+    } else if (SortType.nameDesc === sortType) {
+      // Sort by name DESC
+      newImages.sort(sortByNameDesc);
     } else {
       // Sort by name ASC
       newImages.sort(sortByNameAsc);
@@ -519,9 +542,13 @@ function Gallery() {
             <Spinner size="sm" variant="primary" title="Retrieving folder content..." />
           </> : <>
             <ButtonGroup size="sm">
-              <Button variant="outline-primary" active={SortType.name === sortType} title="Sort by file name"
+              <Button variant="outline-primary" active={SortType.name === sortType} title="Sort by file name, ascending order"
                 onClick={() => setSortType(SortType.name)}>
                 <SortAlphaDown />
+              </Button>
+              <Button variant="outline-primary" active={SortType.nameDesc === sortType} title="Sort by file name, descending order"
+                onClick={() => setSortType(SortType.nameDesc)}>
+                <SortAlphaUp />
               </Button>
               <Button variant="outline-primary" active={SortType.uploaded === sortType} title="Sort by latest uploaded time"
                 onClick={() => setSortType(SortType.uploaded)}>

@@ -2,32 +2,33 @@ nav .breadcrumb {
   margin-bottom: 0;
 }
 
-.folder-icon {
-  width: 60%;
-  height: auto;
-  color: var(--bs-primary);
-}
-
 .gallery-view {
-
-  .image-container {
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    img {
-      /* Leaves some padding inside the square */
-      max-width: 92%;
-      max-height: 92%;
-      /* Keep aspect ratio without distortion */
-      object-fit: contain;
-    }
-  }
 
   .card {
     background-color: var(--bs-tertiary-bg) !important;
+
+    .image-container {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      /* The folder icon inside gallery */
+      .folder-icon {
+        width: 60%;
+        height: auto;
+        color: var(--bs-primary);
+      }
+
+      img {
+        /* Leaves some padding inside the square */
+        max-width: 92%;
+        max-height: 92%;
+        /* Keep aspect ratio without distortion */
+        object-fit: contain;
+      }
+    }
 
     .card-body {
       text-align: center;
@@ -59,4 +60,9 @@ nav .breadcrumb {
   div.card:hover .card-hover-menu {
     opacity: 1;
   }
+}
+
+/* Set the text on slide description selectable */
+.yarl__slide_description {
+  user-select: text;
 }
