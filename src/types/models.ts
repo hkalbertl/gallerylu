@@ -103,6 +103,7 @@ export interface ListFolderResult {
 
 export enum SortType {
   'name',
+  'nameDesc',
   'uploaded'
 }
 

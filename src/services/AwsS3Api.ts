@@ -7,7 +7,7 @@ import { Sha256 } from "@aws-crypto/sha256-js";
 import { XMLParser } from "fast-xml-parser";
 import { DATE_TIME_DISPLAY_FORMAT } from "../constants/common";
 import StorageProvider from "./StorageProvider";
-import { getErrorMessage, sortByNameAsc, sortByTimeDesc } from "../utils/AppUtils";
+import { getErrorMessage, sortByNameAsc, sortByNameDesc, sortByTimeDesc } from "../utils/AppUtils";
 import { SortType, ListFolderResult, GLConfig, ProviderType, FileItem, FolderItem, S3UrlStyle } from "../types/models";
 
 // Load plugins
@@ -94,14 +94,20 @@ export default class AwsS3Api implements StorageProvider {
     const isUsingPathStyle = this.urlStyle === S3UrlStyle.path;
     if (isUsingPathStyle && (!path || 1 === path.length)) {
       // For path style and querying root directory, return the bucket list
-      const buckets = await this.listBuckets();
+      const bucketNames = await this.listBuckets();
+      const bucketAsFolders: FolderItem[] = bucketNames.map(name => ({
+        id: 0,
+        name,
+        path: `/${name}`,
+      }));
+      if (sortType === SortType.nameDesc) {
+        bucketAsFolders.sort(sortByNameDesc);
+      } else {
+        bucketAsFolders.sort(sortByNameAsc);
+      }
       return {
         folderId: 0,
-        folders: buckets.map(name => ({
-          id: 0,
-          name,
-          path: `/${name}`,
-        })),
+        folders: bucketAsFolders,
         files: [],
       };
     }
@@ -182,11 +188,28 @@ export default class AwsS3Api implements StorageProvider {
   /**
    * Create and send file download request.
    * @param relativePath The relative path to target file. Such as `TestS3/Inner/Sub/image4.jpg`.
-   * @returns
+   * @returns The HTTP respones object.
    */
   async makeDownloadRequest(relativePath: string): Promise<Response> {
     return await this.makeSignedRequest(`/${relativePath}`);
   };
+
+  /**
+   * Make HEAD request to retrieve target file's meta data.
+   * @param relativePath The relative path to target file. Such as `TestS3/Inner/Sub/image4.jpg`.
+   * @returns The key value pairs from response headers.
+   */
+  async headObject(relativePath: string): Promise<Record<string, string> | null> {
+    const res = await this.makeSignedRequest(`/${relativePath}`, undefined, 'HEAD');
+    if (res.ok) {
+      const records: Record<string, string> = {};
+      for (const [key, value] of res.headers.entries()) {
+        records[key] = value;
+      }
+      return records;
+    }
+    return null;
+  }
 
   /**
    * Get folder content by specified path.
@@ -319,13 +342,13 @@ export default class AwsS3Api implements StorageProvider {
       });
     if (SortType.uploaded === sortType) {
       files.sort(sortByTimeDesc);
+    } else if (SortType.nameDesc === sortType) {
+      files.sort(sortByNameDesc);
     } else {
       files.sort(sortByNameAsc);
     }
 
-    const folders: FolderItem[] = (
-      Array.isArray(commonPrefixes) ? commonPrefixes : [commonPrefixes]
-    )
+    const folders: FolderItem[] = (Array.isArray(commonPrefixes) ? commonPrefixes : [commonPrefixes])
       .filter(Boolean)
       .map((p: any, index: number) => {
         // The folder prefix is something like `Inner/Sub/`
@@ -337,6 +360,11 @@ export default class AwsS3Api implements StorageProvider {
         };
         return folderItem;
       });
+    if (SortType.nameDesc === sortType) {
+      folders.sort(sortByNameDesc);
+    } else {
+      folders.sort(sortByNameAsc);
+    }
 
     return { folderId: 0, files, folders };
   }

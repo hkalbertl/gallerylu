@@ -3,7 +3,7 @@ import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import { DATE_TIME_DISPLAY_FORMAT } from "../constants/common";
 import { ProviderType, FileDirectLinkResult, FileItem, FolderItem, GLConfig, ListFolderResult, SortType, PathMap } from "../types/models";
-import { getErrorMessage, sortByNameAsc, sortByTimeDesc } from "../utils/AppUtils";
+import { getErrorMessage, sortByNameAsc, sortByNameDesc, sortByTimeDesc } from "../utils/AppUtils";
 import StorageProvider from "./StorageProvider";
 
 // Load plugins
@@ -213,6 +213,8 @@ export default class FileLuApi implements StorageProvider {
           });
           if (SortType.uploaded === sortType) {
             files.sort(sortByTimeDesc);
+          } else if (SortType.nameDesc === sortType) {
+            files.sort(sortByNameDesc);
           } else {
             files.sort(sortByNameAsc);
           }
@@ -230,7 +232,11 @@ export default class FileLuApi implements StorageProvider {
             // Return folder item
             return folderItem;
           });
-          folders.sort(sortByNameAsc);
+          if (SortType.nameDesc === sortType) {
+            folders.sort(sortByNameDesc);
+          } else {
+            folders.sort(sortByNameAsc);
+          }
 
           // Return list folder result
           const output: ListFolderResult = {
