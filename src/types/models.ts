@@ -27,6 +27,10 @@ export interface GLConfig {
   region?: string;
 
   urlStyle?: S3UrlStyle;
+
+  showCaption?: boolean;
+
+  requestMeta?: boolean;
 }
 
 export interface FileItem {
@@ -41,6 +45,11 @@ export interface FileItem {
    * FileLu file name.
    */
   name: string;
+
+  /**
+   * Custom file description.
+   */
+  description?: string;
 
   /**
    * FileLu uploaded time.

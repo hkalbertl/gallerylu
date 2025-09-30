@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { InfoCircle, ExclamationTriangle, Square, Check2Square, Check2, DashCircle, Floppy, Stars, Trash, BoxArrowUpRight } from "react-bootstrap-icons";
-import { Accordion, Alert, Button, Form, FormControl, FormGroup, FormLabel, InputGroup } from "react-bootstrap";
+import { Accordion, Alert, Button, Card, CardBody, CardHeader, Form, FormCheck, FormControl, FormGroup, FormLabel, InputGroup } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { ProviderType, S3UrlStyle } from "../types/models";
 import { getErrorMessage } from "../utils/AppUtils";
@@ -21,6 +21,8 @@ function Config() {
   const [awsS3HostName, setAwsS3HostName] = useState("");
   const [awsS3Region, setAwsS3Region] = useState("");
   const [awsS3VirtualHostStyle, setAwsS3VirtualHostStyle] = useState(false);
+  const [requestMeta, setRequestMeta] = useState(false);
+  const [showCaption, setShowCaption] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -40,10 +42,19 @@ function Config() {
       setAwsS3HostName(savedConfig.hostName || '');
       setAwsS3Region(savedConfig.region || '');
       setAwsS3VirtualHostStyle(S3UrlStyle.virtualHost === savedConfig.urlStyle);
-    } else {
+    } else if (ProviderType.FileLuApi === provider) {
       setFileLuApiKey(savedConfig.apiKey || '');
     }
+    // Other configurations
+    setShowCaption(!!savedConfig.showCaption);
+    setRequestMeta(!!savedConfig.requestMeta);
   }, []);
+
+  useEffect(() => {
+    if (ProviderType.FileLuS5Api !== providerType && ProviderType.AwsS3Api !== providerType) {
+      setRequestMeta(false);
+    }
+  }, [providerType])
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,8 +88,16 @@ function Config() {
         return;
       }
 
-      // Save to localStorage
+      // Add common configs
       const newConfig = apiClient.exportConfig();
+      newConfig.showCaption = showCaption;
+      if (ProviderType.FileLuS5Api === providerType || ProviderType.AwsS3Api === providerType) {
+        newConfig.requestMeta = requestMeta;
+      } else {
+        newConfig.requestMeta = false;
+      }
+
+      // Save to localStorage
       ConfigUtils.saveConfig(newConfig);
 
       // Clear error and show successful alert
@@ -194,6 +213,22 @@ function Config() {
               </Accordion.Body>
             </Accordion.Item>
           </Accordion>
+
+          <Card className="mb-3">
+            <CardHeader>Other Configurations</CardHeader>
+            <CardBody>
+              <FormCheck
+                type="switch" id="showCaption" className="mb-3" label="In lightbox preview, show caption by default"
+                checked={showCaption} onChange={e => setShowCaption(e.target.checked)}
+              />
+              <FormCheck
+                type="switch" id="readMeta" className="mb-3" label="Enable sending additional requests for meta data"
+                title="For S3 related providers, enable GalleryLu to send additional HEAD request for meta data like description."
+                disabled={ProviderType.FileLuS5Api !== providerType && ProviderType.AwsS3Api !== providerType}
+                checked={requestMeta} onChange={e => setRequestMeta(e.target.checked)}
+              />
+            </CardBody>
+          </Card>
 
           {!isLoading && isSuccess && <Alert variant="success">
             <Check2 /> Configuration saved successfully! Let's go to <Link to="/gallery">Gallery</Link>.

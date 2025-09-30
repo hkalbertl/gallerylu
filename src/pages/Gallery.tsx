@@ -5,7 +5,7 @@ import { Folder as FolderIcon, Images, ExclamationTriangle, DashCircle, SortAlph
 import { Lightbox } from "yet-another-react-lightbox";
 import { Captions, Zoom } from "yet-another-react-lightbox/plugins";
 import WCipher from "wcipher";
-import { GALLERY_BATCH_SIZE, GALLERY_BATCH_SLEEP, GALLERY_FIRST_LOAD_IMAGES } from "../constants/common";
+import { GALLERY_BATCH_SIZE, GALLERY_BATCH_SLEEP, GALLERY_FIRST_LOAD_IMAGES, S3_DESCRIPTION_HEADER_NAME } from "../constants/common";
 import PasswordModal from "../components/PasswordModal";
 import { FileItem, FolderItem, SortType, ProviderType } from "../types/models";
 import { extractImages, getBlobTypeByExtName, getErrorMessage, sleep, sortByNameAsc, sortByNameDesc, sortByTimeDesc, toDisplaySize } from "../utils/AppUtils";
@@ -40,6 +40,8 @@ function Gallery() {
   const [folderPath, setFolderPath] = useState<string>('');
   const [breadcrumbs, setBreadcrumbs] = useState<FolderItem[]>([]);
   const [filesInFolder, setFilesInFolder] = useState<number>(0);
+  const [showCaption, setShowCaption] = useState(false);
+  const [requestMeta, setRequestMeta] = useState(false);
   const apiClientRef = useRef<StorageProvider>(undefined);
 
   const [sortType, setSortType] = useState<SortType>(SortType.name);
@@ -79,6 +81,8 @@ function Gallery() {
     if (apiClient) {
       apiClientRef.current = apiClient;
       setProviderType(apiClient.provider);
+      setShowCaption(!!savedConfig.showCaption);
+      setRequestMeta(!!savedConfig.requestMeta);
       console.debug(`Using provider: ${apiClient.provider}`);
     } else {
       // Redirect to Config page
@@ -269,7 +273,6 @@ function Gallery() {
             if (ProviderType.FileLuS5Api === providerType || ProviderType.AwsS3Api === providerType) {
               // For S3 API, make download request
               const apiClient = apiClientRef.current as AwsS3Api;
-              // const headers = await apiClient.headObject(image.code);
               const res = await apiClient.makeDownloadRequest(image.code);
               if (!res.ok) {
                 // Fetch failed?
@@ -338,6 +341,20 @@ function Gallery() {
 
           // Check image binary
           if (fileBytes) {
+            // Read file description, when required
+            if (requestMeta && (ProviderType.FileLuS5Api === providerType || ProviderType.AwsS3Api === providerType)) {
+              // For S3 API, send HEAD request for description
+              const apiClient = apiClientRef.current as AwsS3Api;
+              const headers = await apiClient.requestMetaData(image.code);
+              if (headers) {
+                const description = headers[S3_DESCRIPTION_HEADER_NAME];
+                if (description) {
+                  image.description = description;
+                }
+              }
+            }
+
+            // Check encryption is being used
             if (image.encrypted) {
               try {
                 // Decrypt image
@@ -602,7 +619,7 @@ function Gallery() {
               ))}
               <Lightbox
                 plugins={[Captions, Zoom]}
-                captions={{ hidden: true, showToggle: true }}
+                captions={{ hidden: !showCaption, showToggle: true }}
                 index={lightboxIndex}
                 slides={onScreenImages}
                 open={lightboxIndex >= 0}

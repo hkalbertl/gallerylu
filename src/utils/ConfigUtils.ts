@@ -8,6 +8,8 @@ export default class ConfigUtils {
   private static CONFIG_REGION = "region";
   private static CONFIG_API_KEY = "apiKey";
   private static CONFIG_URL_STYLE = "urlStyle";
+  private static CONFIG_SHOW_CAPTION = "showCaption";
+  private static CONFIG_REQUEST_META = "requestMeta";
 
   /**
    * Load saved config from client browser.
@@ -26,6 +28,8 @@ export default class ConfigUtils {
       secretKey: localStorage.getItem(ConfigUtils.CONFIG_SECRET_KEY) || undefined,
       apiKey: localStorage.getItem(ConfigUtils.CONFIG_API_KEY) || undefined,
       urlStyle,
+      showCaption: !!localStorage.getItem(ConfigUtils.CONFIG_SHOW_CAPTION),
+      requestMeta: !!localStorage.getItem(ConfigUtils.CONFIG_REQUEST_META),
     };
   };
 
@@ -41,5 +45,7 @@ export default class ConfigUtils {
     if (config.secretKey) localStorage.setItem(ConfigUtils.CONFIG_SECRET_KEY, config.secretKey);
     if (config.apiKey) localStorage.setItem(ConfigUtils.CONFIG_API_KEY, config.apiKey);
     if (config.urlStyle) localStorage.setItem(ConfigUtils.CONFIG_URL_STYLE, `${config.urlStyle}`);
+    if (config.showCaption) localStorage.setItem(ConfigUtils.CONFIG_SHOW_CAPTION, "1");
+    if (config.requestMeta) localStorage.setItem(ConfigUtils.CONFIG_REQUEST_META, "1");
   };
 }
