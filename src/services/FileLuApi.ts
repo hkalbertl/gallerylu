@@ -11,7 +11,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 /**
- * FileLu native API client.
+ * FileLu Developer API client.
  */
 export default class FileLuApi implements StorageProvider {
 

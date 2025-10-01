@@ -8,7 +8,7 @@ export interface GLConfig {
   provider?: ProviderType;
 
   /**
-   * FileLu native API Key.
+   * FileLu Developer API Key.
    */
   apiKey?: string;
 
@@ -36,7 +36,7 @@ export interface GLConfig {
 export interface FileItem {
 
   /**
-   * FileLu file code for native API.
+   * FileLu file code for Developer API.
    * Or file relative path for S3 API.
    */
   code: string;
@@ -126,7 +126,7 @@ export enum ProviderType {
    */
   'AwsS3Api' = 's3',
   /**
-   * FileLu native API
+   * FileLu Developer API
    */
   'FileLuApi' = 'api',
 }

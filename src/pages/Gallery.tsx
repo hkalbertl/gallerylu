@@ -246,7 +246,7 @@ function Gallery() {
           // Check if current image's src is defined
           if (image.src) {
             // Skip current image if the src is defined
-            // Probably this is non-encrypted images by using native API
+            // Probably this is non-encrypted images by using Developer API
             return;
           }
 
@@ -256,7 +256,7 @@ function Gallery() {
             // For S3 API, always check file cache
             readCache = true;
           } else {
-            // For native API, check if file encryped
+            // For Developer API, check if file encryped
             if (image.encrypted && encPassword) {
               readCache = true;
             }
@@ -288,7 +288,7 @@ function Gallery() {
                 console.log(`Image downloaded: ${image.name}`);
               }
             } else {
-              // For native API, request full size URL
+              // For Developer API, request full size URL
               const apiClient = apiClientRef.current as FileLuApi;
               const linkResult = await apiClient.getFileDirectLink(image.code);
               shouldSleep = true;

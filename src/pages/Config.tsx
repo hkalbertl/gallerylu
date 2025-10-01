@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { InfoCircle, ExclamationTriangle, Square, Check2Square, Check2, DashCircle, Floppy, Stars, Trash, BoxArrowUpRight } from "react-bootstrap-icons";
-import { Accordion, Alert, Button, Card, CardBody, CardHeader, Form, FormCheck, FormControl, FormGroup, FormLabel, InputGroup } from "react-bootstrap";
+import { InfoCircle, ExclamationTriangle, Check2, DashCircle, Floppy, Stars, Trash } from "react-bootstrap-icons";
+import { Alert, Button, Card, CardBody, CardHeader, Form, FormCheck, FormControl, FormGroup, FormLabel, InputGroup, Tab, Tabs } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { ProviderType, S3UrlStyle } from "../types/models";
 import { getErrorMessage } from "../utils/AppUtils";
@@ -20,7 +20,7 @@ function Config() {
   const [awsS3SecretKey, setAwsS3SecretKey] = useState("");
   const [awsS3HostName, setAwsS3HostName] = useState("");
   const [awsS3Region, setAwsS3Region] = useState("");
-  const [awsS3VirtualHostStyle, setAwsS3VirtualHostStyle] = useState(false);
+  const [awsS3PathStyle, setAwsS3PathStyle] = useState(false);
   const [requestMeta, setRequestMeta] = useState(false);
   const [showCaption, setShowCaption] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,7 +41,7 @@ function Config() {
       setAwsS3SecretKey(savedConfig.secretKey || '');
       setAwsS3HostName(savedConfig.hostName || '');
       setAwsS3Region(savedConfig.region || '');
-      setAwsS3VirtualHostStyle(S3UrlStyle.virtualHost === savedConfig.urlStyle);
+      setAwsS3PathStyle(S3UrlStyle.path === savedConfig.urlStyle);
     } else if (ProviderType.FileLuApi === provider) {
       setFileLuApiKey(savedConfig.apiKey || '');
     }
@@ -72,7 +72,7 @@ function Config() {
         apiClient = new FileLuS5Api(fileLuS5AccessId, fileLuS5SecretKey);
       } else if (ProviderType.AwsS3Api === providerType) {
         apiClient = new AwsS3Api(awsS3AccessId, awsS3SecretKey, awsS3HostName, awsS3Region,
-          awsS3VirtualHostStyle ? S3UrlStyle.virtualHost : S3UrlStyle.path);
+          awsS3PathStyle ? S3UrlStyle.path : S3UrlStyle.virtualHost);
       } else if (ProviderType.FileLuApi === providerType) {
         apiClient = new FileLuApi(fileLuApiKey);
       }
@@ -131,89 +131,68 @@ function Config() {
       <div className="d-flex justify-content-center">
         <div className="card p-4 w-100 w-md-75 shadow" style={{ maxWidth: "640px" }}>
           <h4 className="mb-3">Configuration</h4>
-
-          <p className="mb-3">
-            Please choose one of the following connection method to access your images. If you are using FileLu, please enable <b>S5 Object Storage</b> or <b>Developer API Key</b> in the FileLu <a href="https://filelu.com/account/" target="_blank">My Account</a> page.
-            If you are new to FileLu, consider registering using the author's <a href="https://filelu.com/5155514948.html" target="_blank">referral link</a>.
-          </p>
-
-          <Accordion className="mb-3" defaultActiveKey={ProviderType.FileLuS5Api} activeKey={providerType}>
-            <Accordion.Item eventKey={ProviderType.FileLuS5Api}>
-              <Accordion.Header onClick={() => { setProviderType(ProviderType.FileLuS5Api) }}>
-                {ProviderType.FileLuS5Api === providerType ? <Check2Square /> : <Square />}
-                &nbsp;Using FileLu S5
-              </Accordion.Header>
-              <Accordion.Body>
-                <FormGroup className="mb-3" controlId="fileLuS5AccesId">
-                  <FormLabel>S5 Access Key</FormLabel>
-                  <FormControl value={fileLuS5AccessId} onInput={(e) => setFileLuS5AccessId(e.currentTarget.value)} />
-                </FormGroup>
-                <FormGroup className="mb-3" controlId="fileLuS5SecretKey">
-                  <FormLabel>S5 Secret Key</FormLabel>
-                  <FormControl type="password" value={fileLuS5SecretKey} onInput={(e) => setFileLuS5SecretKey(e.currentTarget.value)} />
-                </FormGroup>
-                <Alert variant="info">
-                  <InfoCircle /> Please note that free FileLu accounts support only one bucket.
-                </Alert>
-              </Accordion.Body>
-            </Accordion.Item>
-            <Accordion.Item eventKey={ProviderType.FileLuApi}>
-              <Accordion.Header onClick={() => { setProviderType(ProviderType.FileLuApi) }}>
-                {ProviderType.FileLuApi === providerType ? <Check2Square /> : <Square />}
-                &nbsp;Using FileLu Native API
-              </Accordion.Header>
-              <Accordion.Body>
-                <FormGroup className="mb-3" controlId="fileLuApiKey">
-                  <FormLabel>FileLu API Key</FormLabel>
-                  <FormControl type="password" value={fileLuApiKey} onInput={(e) => setFileLuApiKey(e.currentTarget.value)} />
-                </FormGroup>
-                <Alert variant="warning">
-                  <ExclamationTriangle /> Using the FileLu native API allows users to download files directly from its server. Unfortunately, the FileLu server always sets the <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS/Errors" target="_blank">CORS origin</a> to its own domain, so modern web browsers will block these requests and prevent GalleryLu from displaying images. To bypass this restriction, a Vercel web proxy is used to transfer files between the FileLu server and the client's web browser. If you are <b>concerned</b> about your files being <b>read by third parties</b>, consider using <b>FileLu S5</b> instead.
-                </Alert>
-              </Accordion.Body>
-            </Accordion.Item>
-            <Accordion.Item eventKey={ProviderType.AwsS3Api}>
-              <Accordion.Header onClick={() => { setProviderType(ProviderType.AwsS3Api) }}>
-                {ProviderType.AwsS3Api === providerType ? <Check2Square /> : <Square />}
-                &nbsp;Using AWS S3 Compatible
-              </Accordion.Header>
-              <Accordion.Body>
-                <FormGroup className="mb-3" controlId="awsS3HostName">
-                  <FormLabel>Host Name</FormLabel>
-                  <InputGroup>
-                    <InputGroup.Text>https://</InputGroup.Text>
-                    <FormControl value={awsS3HostName} onInput={(e) => setAwsS3HostName(e.currentTarget.value)} />
-                  </InputGroup>
-                </FormGroup>
-                <FormGroup className="mb-3" controlId="awsS3Region">
-                  <FormLabel>Region</FormLabel>
-                  <FormControl value={awsS3Region} onInput={(e) => setAwsS3Region(e.currentTarget.value)} placeholder="Optional" />
-                </FormGroup>
-                <FormGroup className="mb-3" controlId="awsS3AccesId">
-                  <FormLabel>Access ID</FormLabel>
-                  <FormControl value={awsS3AccessId} onInput={(e) => setAwsS3AccessId(e.currentTarget.value)} />
-                </FormGroup>
-                <FormGroup className="mb-3" controlId="awsS3SecretKey">
-                  <FormLabel>Secret Key</FormLabel>
-                  <FormControl type="password" value={awsS3SecretKey} onInput={(e) => setAwsS3SecretKey(e.currentTarget.value)} />
-                </FormGroup>
-                <Form.Check
-                  type="switch" id="awsS3UrlStyle" className="mb-3" label={<>Use <b>Virtual Host</b> URL Style</>}
-                  checked={awsS3VirtualHostStyle} onChange={e => setAwsS3VirtualHostStyle(e.currentTarget.checked)}
-                />
-                <Alert variant="info">
-                  <InfoCircle />&nbsp;When using AWS S3 Compatible provider, please make sure your bucket defined the correct CORS headers to allow GalleryLu to access correctly. For example:
-                  <ul>
-                    <li>Access-Control-Allow-Origin: {location.origin}</li>
-                    <li>Access-Control-Allow-Methods: GET, DELETE, HEAD</li>
-                  </ul>
-                  <p>If you are using <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#virtual-hosted-style-access" target="_blank">Virtual Host <BoxArrowUpRight /></a> URL style, the Host Name should be something like <code>[your-bucket-name].s3.your-provider.com</code>.</p>
-                  <p>If you are using <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#path-style-access" target="_blank">Path <BoxArrowUpRight /></a> URL style, the Host Name should be something like <code>s3.your-provider.com</code>.</p>
-                </Alert>
-              </Accordion.Body>
-            </Accordion.Item>
-          </Accordion>
-
+          <Card className="mb-3">
+            <CardHeader>Storage Providers</CardHeader>
+            <CardBody>
+              <Tabs id="provider-tabs" defaultActiveKey={ProviderType.FileLuS5Api} activeKey={providerType}
+                onSelect={selected => setProviderType(selected as ProviderType)}>
+                <Tab eventKey={ProviderType.FileLuS5Api} title="FileLu S5" className="border border-top-0 p-3">
+                  <FormGroup className="mb-3" controlId="fileLuS5AccesId">
+                    <FormLabel>S5 Access Key</FormLabel>
+                    <FormControl value={fileLuS5AccessId} onInput={(e) => setFileLuS5AccessId(e.currentTarget.value)} />
+                  </FormGroup>
+                  <FormGroup className="mb-3" controlId="fileLuS5SecretKey">
+                    <FormLabel>S5 Secret Key</FormLabel>
+                    <FormControl type="password" value={fileLuS5SecretKey} onInput={(e) => setFileLuS5SecretKey(e.currentTarget.value)} />
+                  </FormGroup>
+                  <div className="d-flex justify-content-end">
+                    <a href="https://github.com/hkalbertl/gallerylu/wiki/Configuration#filelu-s5">
+                      <InfoCircle className="me-1" />Help
+                    </a>
+                  </div>
+                </Tab>
+                <Tab eventKey={ProviderType.FileLuApi} title="FileLu Developer API" className="border border-top-0 p-3">
+                  <FormGroup className="mb-3" controlId="fileLuApiKey">
+                    <FormLabel>Developer API Key</FormLabel>
+                    <FormControl type="password" value={fileLuApiKey} onInput={(e) => setFileLuApiKey(e.currentTarget.value)} />
+                  </FormGroup>
+                  <Alert variant="warning">
+                    <ExclamationTriangle /> Direct access to FileLu for unencrypted images. Encrypted images are routed through a proxy. Worried about how your files are handled? See <a href="https://github.com/hkalbertl/gallerylu/wiki/Configuration#filelu-developer-api">details</a> on how GalleryLu uses the FileLu Developer API.
+                  </Alert>
+                </Tab>
+                <Tab eventKey={ProviderType.AwsS3Api} title="AWS S3 Compatible" className="border border-top-0 p-3">
+                  <FormGroup className="mb-3" controlId="awsS3HostName">
+                    <FormLabel>Host Name</FormLabel>
+                    <InputGroup>
+                      <InputGroup.Text>https://</InputGroup.Text>
+                      <FormControl value={awsS3HostName} onInput={(e) => setAwsS3HostName(e.currentTarget.value)} />
+                    </InputGroup>
+                  </FormGroup>
+                  <FormGroup className="mb-3" controlId="awsS3Region">
+                    <FormLabel>Region</FormLabel>
+                    <FormControl value={awsS3Region} onInput={(e) => setAwsS3Region(e.currentTarget.value)} placeholder="Optional" />
+                  </FormGroup>
+                  <FormGroup className="mb-3" controlId="awsS3AccesId">
+                    <FormLabel>Access ID</FormLabel>
+                    <FormControl value={awsS3AccessId} onInput={(e) => setAwsS3AccessId(e.currentTarget.value)} />
+                  </FormGroup>
+                  <FormGroup className="mb-3" controlId="awsS3SecretKey">
+                    <FormLabel>Secret Key</FormLabel>
+                    <FormControl type="password" value={awsS3SecretKey} onInput={(e) => setAwsS3SecretKey(e.currentTarget.value)} />
+                  </FormGroup>
+                  <div className="d-flex justify-content-between">
+                    <Form.Check
+                      type="switch" id="awsS3UrlStyle" label={<>Use <b>Path</b> URL Style</>}
+                      checked={awsS3PathStyle} onChange={e => setAwsS3PathStyle(e.currentTarget.checked)}
+                    />
+                    <a href="https://github.com/hkalbertl/gallerylu/wiki/Configuration#aws-s3-compatible">
+                      <InfoCircle className="me-1" />Help
+                    </a>
+                  </div>
+                </Tab>
+              </Tabs>
+            </CardBody>
+          </Card>
           <Card className="mb-3">
             <CardHeader>Other Configurations</CardHeader>
             <CardBody>
@@ -237,7 +216,7 @@ function Config() {
             <DashCircle /> {error}
           </Alert>}
 
-          <div className="d-flex">
+          <div className="d-flex gap-2">
             <Button type="submit" variant="primary" disabled={isLoading}>
               {!isLoading && <Floppy />}
               {isLoading && <span className="spinner-border spinner-border-sm" aria-hidden="true"></span>}
@@ -246,7 +225,7 @@ function Config() {
             <Button variant="outline-warning" className="ms-auto" onClick={handleClearCache}>
               <Stars />&nbsp;Clear Cache
             </Button>
-            <Button variant="outline-danger" className="ms-1" onClick={handleReset}>
+            <Button variant="outline-danger" onClick={handleReset}>
               <Trash />&nbsp;Reset
             </Button>
           </div>
