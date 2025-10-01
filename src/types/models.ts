@@ -8,7 +8,7 @@ export interface GLConfig {
   provider?: ProviderType;
 
   /**
-   * FileLu native API Key.
+   * FileLu Developer API Key.
    */
   apiKey?: string;
 
@@ -27,12 +27,16 @@ export interface GLConfig {
   region?: string;
 
   urlStyle?: S3UrlStyle;
+
+  showCaption?: boolean;
+
+  requestMeta?: boolean;
 }
 
 export interface FileItem {
 
   /**
-   * FileLu file code for native API.
+   * FileLu file code for Developer API.
    * Or file relative path for S3 API.
    */
   code: string;
@@ -41,6 +45,11 @@ export interface FileItem {
    * FileLu file name.
    */
   name: string;
+
+  /**
+   * Custom file description.
+   */
+  description?: string;
 
   /**
    * FileLu uploaded time.
@@ -117,7 +126,7 @@ export enum ProviderType {
    */
   'AwsS3Api' = 's3',
   /**
-   * FileLu native API
+   * FileLu Developer API
    */
   'FileLuApi' = 'api',
 }

@@ -1,6 +1,6 @@
 # GalleryLu
 
-A React-based image gallery for previewing images uploaded to [FileLu](https://filelu.com/) cloud storage.
+A React-based image gallery for previewing images uploaded to [FileLu](https://filelu.com/) or AWS S3 compatible cloud storage providers.
 
 ## Motivation
 <details>
@@ -40,7 +40,7 @@ A React-based image gallery for previewing images uploaded to [FileLu](https://f
   * No API keys are transmitted to any third-party server other than FileLu.
   * When using FileLu S5 API:
     * All images will be downloaded directly from FileLu, which provides top-tier security.
-  * When using FileLu native API:
+  * When using FileLu Developer API:
     * Standard images will be downloaded from FileLu directly.
     * Encrypted images will be downloaded through the [Vercel rewrite](https://vercel.com/docs/edge-network/rewrites) module due to [CORS issue](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors) and decrypted on user's browser.
   * All processing happens client-side in the user's web browser.
@@ -69,7 +69,7 @@ By using this application, you agree to the following terms:
 ## Limitations
 * GalleryLu supports common image formats only, such as `.jpg`, `.png`, `.bmp`, `.gif`, and `.webp`. Other files will be hidden.
 * GalleryLu depends on FileLu's API. GalleryLu will not work when the API service is unavailable.
-* When using FileLu native API:
+* When using FileLu Developer API:
   * FileLu does not provide an [API](https://filelu.com/pages/api/) that can list a folder's content with their direct download links. Therefore, GalleryLu has to request a download link for each image one by one. To prevent hitting the rate limit, GalleryLu may take time to load a large folder.
   * FileLu does not provide settings for [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors). The encrypted images cannot be downloaded from FileLu server directly. [Vercel rewrite](https://vercel.com/docs/edge-network/rewrites) module is being used to bypass CORS issue. Please try **FileLu S5 API** without involving third-parties.
 

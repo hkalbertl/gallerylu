@@ -199,7 +199,7 @@ export default class AwsS3Api implements StorageProvider {
    * @param relativePath The relative path to target file. Such as `TestS3/Inner/Sub/image4.jpg`.
    * @returns The key value pairs from response headers.
    */
-  async headObject(relativePath: string): Promise<Record<string, string> | null> {
+  async requestMetaData(relativePath: string): Promise<Record<string, string> | null> {
     const res = await this.makeSignedRequest(`/${relativePath}`, undefined, 'HEAD');
     if (res.ok) {
       const records: Record<string, string> = {};
